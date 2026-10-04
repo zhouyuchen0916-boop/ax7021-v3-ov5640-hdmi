@@ -1,0 +1,165 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.1 (win64) Build 3865809 Sun May  7 15:05:29 MDT 2023
+| Date         : Tue Sep 29 19:34:20 2026
+| Host         : Zhouyc running 64-bit major release  (build 9200)
+| Command      : report_cdc -details -file C:/Users/34249/Documents/ChatGPT/FPGA/projects/ax7021_v3_ov5640_base/Vivado/auto_create_project/../reports/cdc.rpt
+| Design       : design_1_wrapper
+| Device       : 7z020-clg484
+| Speed File   : -2  PRODUCTION 1.12 2019-11-22
+| Design State : Routed
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CDC Report
+
+ID     Severity  Count  Description
+-----  --------  -----  -------------------------------------------------------
+CDC-3  Info         72  1-bit synchronized with ASYNC_REG property
+CDC-6  Warning       1  Multi-bit synchronized with ASYNC_REG property
+CDC-9  Info          2  Asynchronous reset synchronized with ASYNC_REG property
+
+Source Clock: clk_fpga_1
+Destination Clock: clk_fpga_0
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                 Depth  Exception   Source (From)                                                                                                                                                                                    Destination (To)
+---  -----  --------  ------------------------------------------  -----  ----------  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  False Path  design_1_i/axi_vdma_0/U0/AXI_LITE_REG_INTERFACE_I/GEN_MM2S_LITE_CROSSINGS.GEN_MM2S_CROSSINGS_ASYNC.MM2S_INTRPT_CROSSING_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.INPUT_FLOP.REG_PLEVEL_IN_cdc_from/C  design_1_i/axi_vdma_0/U0/AXI_LITE_REG_INTERFACE_I/GEN_MM2S_LITE_CROSSINGS.GEN_MM2S_CROSSINGS_ASYNC.MM2S_INTRPT_CROSSING_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.CROSS_PLEVEL_IN2SCNDRY_IN_cdc_to/D
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_CLR_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN_cdc_from/C                                          design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_CLR_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN2_cdc_to/D
+  3  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_IDLE_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.INPUT_FLOP.REG_PLEVEL_IN_cdc_from/C                         design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_IDLE_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.CROSS_PLEVEL_IN2SCNDRY_IN_cdc_to/D
+  4  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_RESET_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN_cdc_from/C                                        design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_RESET_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN2_cdc_to/D
+  5  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_CLR_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN_cdc_from/C                                          design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_CLR_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN2_cdc_to/D
+  6  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_IDLE_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.INPUT_FLOP.REG_PLEVEL_IN_cdc_from/C                         design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_IDLE_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.CROSS_PLEVEL_IN2SCNDRY_IN_cdc_to/D
+  7  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_RESET_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN_cdc_from/C                                        design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_RESET_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN2_cdc_to/D
+
+Source Clock: hdmi_out_clk_OBUF
+Destination Clock: clk_fpga_0
+CDC Type: Safely Timed
+
+Row  ID     Severity  Description                                     Depth  Exception                Source (From)                                                                  Destination (To)
+---  -----  --------  ----------------------------------------------  -----  -----------------------  -----------------------------------------------------------------------------  ---------------------------------------------------------------------------------------------
+  1  CDC-6  Warning   Multi-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.ipif_RdData_reg[31:0]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2PROCCLK_I/data_sync_reg[0][31:0]/D
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property          3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.read_ack_d_reg[4]/C      design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2PROCCLK_I/data_sync_reg[0][32]/D
+  3  CDC-3  Info      1-bit synchronized with ASYNC_REG property          3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.write_ack_reg/C          design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2PROCCLK_I/data_sync_reg[0][33]/D
+
+Source Clock: clk_fpga_0
+Destination Clock: clk_fpga_1
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                 Depth  Exception   Source (From)                                                                                                                                                                                                   Destination (To)
+---  -----  --------  ------------------------------------------  -----  ----------  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_0/U0/AXI_LITE_REG_INTERFACE_I/GEN_AXI_LITE_IF.AXI_LITE_IF_I/GEN_LITE_IS_ASYNC.GEN_MM2S_ONLY_ASYNC_LITE_ACCESS.LITE_WVALID_MM2S_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN_cdc_from/C  design_1_i/axi_vdma_0/U0/AXI_LITE_REG_INTERFACE_I/GEN_AXI_LITE_IF.AXI_LITE_IF_I/GEN_LITE_IS_ASYNC.GEN_MM2S_ONLY_ASYNC_LITE_ACCESS.LITE_WVALID_MM2S_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN2_cdc_to/D
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_MIN_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.INPUT_FLOP.REG_PLEVEL_IN_cdc_from/C                                         design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_MIN_FOR_ASYNC.LITE_MIN_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.CROSS_PLEVEL_IN2SCNDRY_IN_cdc_to/D
+  3  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_RESET_FOR_ASYNC.HARD_RESET_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.INPUT_FLOP.REG_PLEVEL_IN_cdc_from/C                                     design_1_i/axi_vdma_0/U0/I_RST_MODULE/GEN_RESET_FOR_MM2S.RESET_I/GEN_RESET_FOR_ASYNC.HARD_RESET_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.CROSS_PLEVEL_IN2SCNDRY_IN_cdc_to/D
+  4  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_1/U0/AXI_LITE_REG_INTERFACE_I/GEN_AXI_LITE_IF.AXI_LITE_IF_I/GEN_LITE_IS_ASYNC.GEN_S2MM_ONLY_ASYNC_LITE_ACCESS.LITE_WVALID_S2MM_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN_cdc_from/C  design_1_i/axi_vdma_1/U0/AXI_LITE_REG_INTERFACE_I/GEN_AXI_LITE_IF.AXI_LITE_IF_I/GEN_LITE_IS_ASYNC.GEN_S2MM_ONLY_ASYNC_LITE_ACCESS.LITE_WVALID_S2MM_CDC_I/GENERATE_PULSE_P_S_CDC_OPEN_ENDED.REG_P_IN2_cdc_to/D
+  5  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_MIN_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.INPUT_FLOP.REG_PLEVEL_IN_cdc_from/C                                         design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_MIN_FOR_ASYNC.LITE_MIN_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.CROSS_PLEVEL_IN2SCNDRY_IN_cdc_to/D
+  6  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_RESET_FOR_ASYNC.HARD_RESET_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.INPUT_FLOP.REG_PLEVEL_IN_cdc_from/C                                     design_1_i/axi_vdma_1/U0/I_RST_MODULE/GEN_RESET_FOR_S2MM.RESET_I/GEN_RESET_FOR_ASYNC.HARD_RESET_CDC_I/GENERATE_LEVEL_P_S_CDC.SINGLE_BIT.CROSS_PLEVEL_IN2SCNDRY_IN_cdc_to/D
+
+Source Clock: cmos1_pclk
+Destination Clock: clk_fpga_1
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                 Depth  Exception   Source (From)                                                                                                                              Destination (To)
+---  -----  --------  ------------------------------------------  -----  ----------  -----------------------------------------------------------------------------------------------------------------------------------------  --------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property      2  False Path  design_1_i/alinx_ov5640_0/inst/fifo_ready_reg/C                                                                                            design_1_i/alinx_ov5640_0/inst/fifo_ready_sync_reg[0]/D
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property      2  False Path  design_1_i/alinx_ov5640_0/inst/xpm_fifo_async_inst/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.fifo_wr_rst_ic_reg/C  design_1_i/alinx_ov5640_0/inst/xpm_fifo_async_inst/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.wrst_rd_inst/syncstages_ff_reg[0]/D
+
+Source Clock: hdmi_out_clk_OBUF
+Destination Clock: clk_fpga_1
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                 Depth  Exception   Source (From)                                                                                                                                                                            Destination (To)
+---  -----  --------  ------------------------------------------  -----  ----------  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/v_axi4s_vid_out_0/inst/SYNC_INST/locked_reg/C                                                                                                                                 design_1_i/v_axi4s_vid_out_0/inst/CDC_SINGLE_LOCKED_INST/xpm_cdc_single_inst/syncstages_ff_reg[0]/D
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/v_axi4s_vid_out_0/inst/COUPLER_INST/generate_async_fifo.FIFO_INST/XPM_FIFO_ASYNC_INST/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.fifo_rd_rst_ic_reg/C  design_1_i/v_axi4s_vid_out_0/inst/COUPLER_INST/generate_async_fifo.FIFO_INST/XPM_FIFO_ASYNC_INST/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.rrst_wr_inst/syncstages_ff_reg[0]/D
+
+Source Clock: clk_fpga_1
+Destination Clock: cmos1_pclk
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                 Depth  Exception   Source (From)                                                                                                                              Destination (To)
+---  -----  --------  ------------------------------------------  -----  ----------  -----------------------------------------------------------------------------------------------------------------------------------------  --------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property      2  False Path  design_1_i/alinx_ov5640_0/inst/xpm_fifo_async_inst/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.fifo_rd_rst_ic_reg/C  design_1_i/alinx_ov5640_0/inst/xpm_fifo_async_inst/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.rrst_wr_inst/syncstages_ff_reg[0]/D
+
+Source Clock: dbg_hub/inst/BSCANID.u_xsdbm_id/SWITCH_N_EXT_BSCAN.bscan_inst/SERIES7_BSCAN.bscan_inst/TCK
+Destination Clock: cmos1_pclk
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                              Depth  Exception   Source (From)                                                                                            Destination (To)
+---  -----  --------  -------------------------------------------------------  -----  ----------  -------------------------------------------------------------------------------------------------------  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD1/icn_cmd_en_temp_reg/C       dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD1/ctl_reg_en_1_reg[0]/D
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD2/icn_cmd_en_temp_reg/C       dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD2/stat_reg_ld_reg[0]/D
+  3  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD3/icn_cmd_en_temp_reg/C       dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD3/stat_reg_ld_reg[0]/D
+  4  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD4/icn_cmd_en_temp_reg/C       dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD4/ctl_reg_en_1_reg[0]/D
+  5  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD5/icn_cmd_en_temp_reg/C       dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD5/ctl_reg_en_1_reg[0]/D
+  6  CDC-9  Info      Asynchronous reset synchronized with ASYNC_REG property      2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/wrdata_rst_reg/C                   dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD6_WR/U_WR_FIFO/SUBCORE_FIFO.xsdbm_v3_0_0_wrfifo_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.rst_rd_reg1_reg/PRE
+  7  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD7_CTL/icn_cmd_en_temp_reg/C   dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD7_CTL/ctl_reg_en_1_reg[0]/D
+  8  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD7_STAT/icn_cmd_en_temp_reg/C  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD7_STAT/stat_reg_ld_reg[0]/D
+  9  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/icn_cmd_en_reg[5]/C                dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/icn_cmd_en_5_temp_reg/D
+
+Source Clock: cmos1_pclk
+Destination Clock: dbg_hub/inst/BSCANID.u_xsdbm_id/SWITCH_N_EXT_BSCAN.bscan_inst/SERIES7_BSCAN.bscan_inst/TCK
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                              Depth  Exception   Source (From)                                                                                  Destination (To)
+---  -----  --------  -------------------------------------------------------  -----  ----------  ---------------------------------------------------------------------------------------------  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-9  Info      Asynchronous reset synchronized with ASYNC_REG property      2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/rddata_rst_reg/C         dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD6_RD/U_RD_FIFO/SUBCORE_FIFO.xsdbm_v3_0_0_rdfifo_inst/inst_fifo_gen/gconvfifo.rf/grf.rf/rstblk/ngwrdrst.grst.g7serrst.rst_rd_reg1_reg/PRE
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property                   2  False Path  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/U_CMD1/ctl_reg_reg[0]/C  dbg_hub/inst/BSCANID.u_xsdbm_id/CORE_XSDB.UUT_MASTER/U_ICON_INTERFACE/ma_rst_1_reg/D
+
+Source Clock: clk_fpga_0
+Destination Clock: hdmi_out_clk_OBUF
+CDC Type: Safely Timed
+
+Row  ID     Severity  Description                                 Depth  Exception                Source (From)                                                               Destination (To)
+---  -----  --------  ------------------------------------------  -----  -----------------------  --------------------------------------------------------------------------  ------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[0]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][0]/D
+  2  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[1]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][1]/D
+  3  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[2]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][2]/D
+  4  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[3]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][3]/D
+  5  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[4]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][4]/D
+  6  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[5]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][5]/D
+  7  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[6]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][6]/D
+  8  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[7]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][7]/D
+  9  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[8]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][8]/D
+ 10  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[9]/C   design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][9]/D
+ 11  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[10]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][10]/D
+ 12  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[11]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][11]/D
+ 13  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[12]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][12]/D
+ 14  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[13]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][13]/D
+ 15  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[14]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][14]/D
+ 16  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[15]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][15]/D
+ 17  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[16]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][16]/D
+ 18  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[17]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][17]/D
+ 19  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[18]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][18]/D
+ 20  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[19]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][19]/D
+ 21  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[20]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][20]/D
+ 22  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[21]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][21]/D
+ 23  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[22]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][22]/D
+ 24  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[23]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][23]/D
+ 25  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[24]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][24]/D
+ 26  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[25]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][25]/D
+ 27  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[26]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][26]/D
+ 28  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[27]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][27]/D
+ 29  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[28]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][28]/D
+ 30  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[29]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][29]/D
+ 31  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[30]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][30]/D
+ 32  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[31]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][31]/D
+ 33  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[34]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][34]/D
+ 34  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[35]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][35]/D
+ 35  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[36]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][36]/D
+ 36  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[37]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][37]/D
+ 37  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[38]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][38]/D
+ 38  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[39]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][39]/D
+ 39  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[41]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][41]/D
+ 40  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[42]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][42]/D
+ 41  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[43]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][43]/D
+ 42  CDC-3  Info      1-bit synchronized with ASYNC_REG property      3  Max Delay Datapath Only  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.proc_sync1_reg[44]/C  design_1_i/v_tc_0/U0/U_VIDEO_CTRL/AXI4_LITE_INTERFACE.SYNC2VIDCLK_I/data_sync_reg[0][44]/D
+
+Source Clock: clk_fpga_1
+Destination Clock: hdmi_out_clk_OBUF
+CDC Type: No Common Primary Clock
+
+Row  ID     Severity  Description                                 Depth  Exception   Source (From)                                                                                                                                                                            Destination (To)
+---  -----  --------  ------------------------------------------  -----  ----------  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1  CDC-3  Info      1-bit synchronized with ASYNC_REG property      4  False Path  design_1_i/v_axi4s_vid_out_0/inst/COUPLER_INST/generate_async_fifo.FIFO_INST/XPM_FIFO_ASYNC_INST/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.fifo_wr_rst_ic_reg/C  design_1_i/v_axi4s_vid_out_0/inst/COUPLER_INST/generate_async_fifo.FIFO_INST/XPM_FIFO_ASYNC_INST/gnuram_async_fifo.xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_ic.wrst_rd_inst/syncstages_ff_reg[0]/D
+

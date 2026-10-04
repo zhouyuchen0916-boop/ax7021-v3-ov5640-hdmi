@@ -1,0 +1,41 @@
+# Vivado generated state and implementation output
+.Xil/
+Vivado/**/.Xil/
+Vivado/**/*.cache/
+Vivado/**/*.gen/
+Vivado/**/*.runs/
+Vivado/**/*.hw/
+Vivado/**/*.ip_user_files/
+Vivado/**/*.sim/
+Vivado/**/*.backup/
+Vivado/**/*.dcp
+Vivado/**/*.jou
+Vivado/**/*.log
+Vivado/**/*.str
+Vivado/**/vivado_pid*
+
+# Vitis generated platform/BSP workspace. Recreate with Vitis/build_all.bat.
+Vitis/design_1_wrapper/
+Vitis/auto_create_vitis/*.log
+Vitis/manual_build/build/
+Vitis/manual_build/*.map
+Vitis/manual_build/*.su
+Vitis/tmp/
+
+# Local tool/editor state
+.metadata/
+.settings/
+*.swp
+*.user
+*.userprefs
+
+# Keep selected reproducible deliverables explicitly tracked.
+!Vivado/design_1_wrapper.bit
+!Vitis/design_1_wrapper.xsa
+!Vitis/manual_build/an5642_single.elf
+
+# Python/cache and OS noise if helper scripts are added later
+__pycache__/
+*.py[cod]
+Thumbs.db
+Desktop.ini

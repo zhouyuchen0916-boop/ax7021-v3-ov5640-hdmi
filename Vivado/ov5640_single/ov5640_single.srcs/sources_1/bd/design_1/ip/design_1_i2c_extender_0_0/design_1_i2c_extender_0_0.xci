@@ -1,0 +1,101 @@
+{
+  "schema": "xilinx.com:schema:json_instance:1.0",
+  "ip_inst": {
+    "xci_name": "design_1_i2c_extender_0_0",
+    "cell_name": "i2c_extender_0",
+    "component_reference": "alinx.com.cn:user:i2c_extender:1.1",
+    "ip_revision": "1",
+    "gen_directory": "../../../../../../ov5640_single.gen/sources_1/bd/design_1/ip/design_1_i2c_extender_0_0",
+    "parameters": {
+      "component_parameters": {
+        "Component_Name": [ { "value": "design_1_i2c_extender_0_0", "resolve_type": "user", "usage": "all" } ]
+      },
+      "project_parameters": {
+        "ARCHITECTURE": [ { "value": "zynq" } ],
+        "BASE_BOARD_PART": [ { "value": "" } ],
+        "BOARD_CONNECTIONS": [ { "value": "" } ],
+        "DEVICE": [ { "value": "xc7z020" } ],
+        "PACKAGE": [ { "value": "clg484" } ],
+        "PREFHDL": [ { "value": "VERILOG" } ],
+        "SILICON_REVISION": [ { "value": "" } ],
+        "SIMULATOR_LANGUAGE": [ { "value": "MIXED" } ],
+        "SPEEDGRADE": [ { "value": "-2" } ],
+        "STATIC_POWER": [ { "value": "" } ],
+        "TEMPERATURE_GRADE": [ { "value": "" } ]
+      },
+      "runtime_parameters": {
+        "IPCONTEXT": [ { "value": "IP_Integrator" } ],
+        "IPREVISION": [ { "value": "1" } ],
+        "MANAGED": [ { "value": "TRUE" } ],
+        "OUTPUTDIR": [ { "value": "../../../../../../ov5640_single.gen/sources_1/bd/design_1/ip/design_1_i2c_extender_0_0" } ],
+        "SELECTEDSIMMODEL": [ { "value": "" } ],
+        "SHAREDDIR": [ { "value": "../../ipshared" } ],
+        "SWVERSION": [ { "value": "2023.1" } ],
+        "SYNTHESISFLOW": [ { "value": "OUT_OF_CONTEXT" } ]
+      }
+    },
+    "boundary": {
+      "ports": {
+        "upstream_scl_T": [ { "direction": "in" } ],
+        "upstream_scl_I": [ { "direction": "in" } ],
+        "upstream_scl_O": [ { "direction": "out" } ],
+        "upstream_sda_T": [ { "direction": "in" } ],
+        "upstream_sda_I": [ { "direction": "in" } ],
+        "upstream_sda_O": [ { "direction": "out" } ],
+        "downstream0_scl_T": [ { "direction": "out" } ],
+        "downstream0_scl_I": [ { "direction": "in" } ],
+        "downstream0_scl_O": [ { "direction": "out" } ],
+        "downstream0_sda_T": [ { "direction": "out" } ],
+        "downstream0_sda_I": [ { "direction": "in" } ],
+        "downstream0_sda_O": [ { "direction": "out" } ],
+        "downstream1_scl_T": [ { "direction": "out" } ],
+        "downstream1_scl_I": [ { "direction": "in" } ],
+        "downstream1_scl_O": [ { "direction": "out" } ],
+        "downstream1_sda_T": [ { "direction": "out" } ],
+        "downstream1_sda_I": [ { "direction": "in" } ],
+        "downstream1_sda_O": [ { "direction": "out" } ]
+      },
+      "interfaces": {
+        "i2c_up": {
+          "vlnv": "xilinx.com:interface:iic:1.0",
+          "abstraction_type": "xilinx.com:interface:iic_rtl:1.0",
+          "mode": "slave",
+          "port_maps": {
+            "SCL_T": [ { "physical_name": "upstream_scl_T" } ],
+            "SDA_O": [ { "physical_name": "upstream_sda_I" } ],
+            "SDA_I": [ { "physical_name": "upstream_sda_O" } ],
+            "SDA_T": [ { "physical_name": "upstream_sda_T" } ],
+            "SCL_O": [ { "physical_name": "upstream_scl_I" } ],
+            "SCL_I": [ { "physical_name": "upstream_scl_O" } ]
+          }
+        },
+        "i2c_down0": {
+          "vlnv": "xilinx.com:interface:iic:1.0",
+          "abstraction_type": "xilinx.com:interface:iic_rtl:1.0",
+          "mode": "master",
+          "port_maps": {
+            "SCL_T": [ { "physical_name": "downstream0_scl_T" } ],
+            "SDA_O": [ { "physical_name": "downstream0_sda_O" } ],
+            "SDA_I": [ { "physical_name": "downstream0_sda_I" } ],
+            "SDA_T": [ { "physical_name": "downstream0_sda_T" } ],
+            "SCL_O": [ { "physical_name": "downstream0_scl_O" } ],
+            "SCL_I": [ { "physical_name": "downstream0_scl_I" } ]
+          }
+        },
+        "i2c_down1": {
+          "vlnv": "xilinx.com:interface:iic:1.0",
+          "abstraction_type": "xilinx.com:interface:iic_rtl:1.0",
+          "mode": "master",
+          "port_maps": {
+            "SCL_T": [ { "physical_name": "downstream1_scl_T" } ],
+            "SDA_O": [ { "physical_name": "downstream1_sda_O" } ],
+            "SDA_I": [ { "physical_name": "downstream1_sda_I" } ],
+            "SDA_T": [ { "physical_name": "downstream1_sda_T" } ],
+            "SCL_O": [ { "physical_name": "downstream1_scl_O" } ],
+            "SCL_I": [ { "physical_name": "downstream1_scl_I" } ]
+          }
+        }
+      }
+    }
+  }
+}
