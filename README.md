@@ -56,6 +56,8 @@ cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vitis
 
 首次执行会从 XSA 创建 Vitis standalone 平台并编译 BSP，通常需要几分钟；随后使用 Vitis 2023.1 自带的 `arm-none-eabi-gcc` 构建应用。若重新生成了 XSA，应先删除生成目录 `Vitis/design_1_wrapper`，再执行上述命令。应用源码位于 `Vitis/auto_create_vitis/src/an5642_single`，可只执行 `Vitis/manual_build/build.bat` 快速重编应用。
 
+裸 JTAG 启动不会执行 FSBL，因此应用在 `main()` 开始处调用 `XTime_SetTime(0)` 启动 SCU 全局定时器；否则 standalone 的 `usleep()` 会一直等待。三帧 1280×720 RGB888 缓存放在链接脚本的 `.noinit` 区，并在其上方预留启动栈保护区，避免 C 运行库清零 BSS 时覆盖 Cortex-A9 异常栈。
+
 由于本机完整路径较长，而且 Xilinx Tcl 在该 Windows 用户目录下会错误处理 `Documents` 路径，脚本临时使用 `P:`/`Q:` 映射工程根目录；源文件和输出仍保存在本工程目录中。
 
 ## 实板连接与运行
@@ -94,19 +96,19 @@ VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720
 
 ## 最终构建验证
 
-构建日期：2026-09-29。
+构建日期：2026-10-06。
 
 - 实现和比特流生成：成功，0 Error、0 Critical Warning
 - 时序：WNS `+0.522 ns`，TNS `0 ns`，WHS `+0.043 ns`，THS `0 ns`
 - 布线：0 条失败网络，0 条未布线网络
 - CDC：摄像头 `fifo_ready` 使用两级同步器并被识别为 `CDC-3`；像素数据由 XPM 异步 FIFO 跨域
 - 资源：6768 LUT、11392 FF、14 RAMB36、3 RAMB18、0 DSP
-- BIT SHA-256：`AF008349583ED1A781D2E6942A8CEF86407BBB2535487E67D83E2C2D9A0357BA`
-- XSA SHA-256：`3AF579698AB759941D94A172CC109AC8226F1497AC0B0E7C60D1DF053AF89337`
+- BIT SHA-256：`5FED6619B4A8A151FA1214D5D3CDC6B05CB4A180A5D6DBDFB570D42655713930`
+- XSA SHA-256：`366ED5E1362BF0167CD12DAA5A6D3B33FDA4814452F4C3E4FD46074958224CD9`
 - Vitis standalone BSP：成功构建，stdin/stdout 均为 `ps7_uart_1`
 - 裸机应用：成功构建，0 编译错误、0 编译警告；ELF32 ARM hard-float，入口地址 `0x00100000`
-- ELF 代码/数据/BSS：57168 B / 2660 B / 18707360 B
-- ELF SHA-256：`019FD38C2295769AB049A0CAA89940064F855CCAEC6544070FDD78A295200140`
+- ELF 代码/数据/size 工具统计：57864 B / 2660 B / 8430520 B；其中 `.bss` 为 0xBB8，三帧缓存位于 `.noinit`，大小为 0x7E9000
+- ELF SHA-256：`6F6C110D30021F00D34E9D40EB892D6937C6578FD3487F9824E665E3E8A11854`
 
 ## 仓库内容与提交范围
 
@@ -128,5 +130,6 @@ README.md               构建、接线、验证边界和运行说明
 - OV5640 的 10 位数据、HREF、VSYNC 尚未加入板级 `set_input_delay`。准确数值依赖摄像头寄存器配置、模组和 PCB 走线，不能仅凭参考工程臆造。
 - `TIMING-9/CDC-6` 位于 AMD Video Timing Controller 自带的 AXI-Lite 多位 CDC 逻辑；摄像头自定义 CDC 已修正。
 - 其余 `PDCN-1569`、`RTSTAT-10`、`LUTAR-1`、`PDRC-190` 指向 AMD 调试核或 AXI/IP 内部逻辑，没有阻止比特流生成。
-- 当前结果证明 Vivado 实现、BIT/XSA 生成、Vitis BSP 和裸机 ELF 构建通过。本次检查时 `JTAG_TARGETS_BEGIN/END` 之间为空，系统也没有枚举出串口，因此尚未完成 AX7021 实板下载、OV5640 初始化和 HDMI 实际显示测试。
+- 2026-10-06 实板验证：JTAG 链枚举出 Digilent JTAG-HS1、ARM Cortex-A9 和 `xc7z020`；AX7021 的 CP210x UART 枚举为 COM3，串口 115200 8N1 输出了 `OV5640 chip ID: 0x5640`、`OV5640 configured for 1280x720 RGB output` 和 `VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720`。异常地址保持为 0，诊断阶段为 0x900。
+- JTAG 读取帧缓存时，第二、第三帧缓存地址出现稳定的非零像素数据；这证明 OV5640→DVP→VDMA S2MM→DDR 正在写入。VDMA、VTC、动态时钟和两个复位 GPIO 均已读到运行态寄存器值。HDMI OUT 经 USB HDMI 采集卡接入电脑后，OBS 已显示实时摄像头画面，摄像头到 HDMI 的完整基础通路通过实板验证。
 - 当前没有人脸检测硬件加速器，资源报告中的 DSP 数量为 0。完成摄像头到 HDMI 的实板验证后，再接入量化检测网络。

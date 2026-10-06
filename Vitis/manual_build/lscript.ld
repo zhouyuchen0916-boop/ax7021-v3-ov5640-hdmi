@@ -203,6 +203,21 @@ SECTIONS
     __bss_end__ = .;
   } > ps7_ddr_0_S_AXI_BASEADDR
 
+  /* Frame buffers are intentionally excluded from the CRT BSS memset. */
+  .noinit (NOLOAD) : {
+    . = ALIGN(64);
+    __noinit_start = .;
+    *(.noinit)
+    *(.noinit.*)
+    __noinit_end = .;
+  } > ps7_ddr_0_S_AXI_BASEADDR
+
+  /* Keep the startup-created ARM mode stacks above the frame-buffer area. */
+  .stack_guard (NOLOAD) : {
+    . = ALIGN(0x10000);
+    . += 0x10000;
+  } > ps7_ddr_0_S_AXI_BASEADDR
+
   _SDA_BASE_ = __sdata_start + ((__sbss_end - __sdata_start) / 2);
   _SDA2_BASE_ = __sdata2_start + ((__sbss2_end - __sdata2_start) / 2);
 

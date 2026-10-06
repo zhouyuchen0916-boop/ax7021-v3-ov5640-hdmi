@@ -158,7 +158,7 @@ proc set_ps_config {bd_cell_name} {
     CONFIG.PCW_EN_TRACE {0} \
     CONFIG.PCW_EN_TTC0 {0} \
     CONFIG.PCW_EN_TTC1 {0} \
-    CONFIG.PCW_EN_UART0 {0} \
+    CONFIG.PCW_EN_UART0 {1} \
     CONFIG.PCW_EN_UART1 {1} \
     CONFIG.PCW_EN_USB0 {1} \
     CONFIG.PCW_EN_USB1 {0} \
@@ -357,10 +357,10 @@ proc set_ps_config {bd_cell_name} {
     CONFIG.PCW_MIO_9_PULLUP {enabled} \
     CONFIG.PCW_MIO_9_SLEW {slow} \
     CONFIG.PCW_MIO_PRIMITIVE {54} \
-    CONFIG.PCW_MIO_TREE_PERIPHERALS {GPIO#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#ENET Reset#USB Reset#GPIO#SD 0#GPIO#UART 1#UART 1#GPIO#GPIO#Enet 0#Enet\
+    CONFIG.PCW_MIO_TREE_PERIPHERALS {GPIO#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#ENET Reset#USB Reset#GPIO#SD 0#GPIO#UART 1#UART 1#UART 0#UART 0#Enet 0#Enet\
 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#Enet 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#USB 0#SD 0#SD 0#SD 0#SD 0#SD 0#SD 0#SD 1#SD 1#SD 1#SD 1#SD 1#SD\
 1#Enet 0#Enet 0} \
-    CONFIG.PCW_MIO_TREE_SIGNALS {gpio[0]#qspi0_ss_b#qspi0_io[0]#qspi0_io[1]#qspi0_io[2]#qspi0_io[3]/HOLD_B#qspi0_sclk#reset#reset#gpio[9]#cd#gpio[11]#tx#rx#gpio[14]#gpio[15]#tx_clk#txd[0]#txd[1]#txd[2]#txd[3]#tx_ctl#rx_clk#rxd[0]#rxd[1]#rxd[2]#rxd[3]#rx_ctl#data[4]#dir#stp#nxt#data[0]#data[1]#data[2]#data[3]#clk#data[5]#data[6]#data[7]#clk#cmd#data[0]#data[1]#data[2]#data[3]#data[0]#cmd#clk#data[1]#data[2]#data[3]#mdc#mdio}\
+    CONFIG.PCW_MIO_TREE_SIGNALS {gpio[0]#qspi0_ss_b#qspi0_io[0]#qspi0_io[1]#qspi0_io[2]#qspi0_io[3]/HOLD_B#qspi0_sclk#reset#reset#gpio[9]#cd#gpio[11]#tx#rx#tx#rx#tx_clk#txd[0]#txd[1]#txd[2]#txd[3]#tx_ctl#rx_clk#rxd[0]#rxd[1]#rxd[2]#rxd[3]#rx_ctl#data[4]#dir#stp#nxt#data[0]#data[1]#data[2]#data[3]#clk#data[5]#data[6]#data[7]#clk#cmd#data[0]#data[1]#data[2]#data[3]#data[0]#cmd#clk#data[1]#data[2]#data[3]#mdc#mdio}\
 \
     CONFIG.PCW_M_AXI_GP0_ENABLE_STATIC_REMAP {0} \
     CONFIG.PCW_M_AXI_GP0_ID_WIDTH {12} \
@@ -488,7 +488,12 @@ proc set_ps_config {bd_cell_name} {
     CONFIG.PCW_TTC1_CLK2_PERIPHERAL_CLKSRC {CPU_1X} \
     CONFIG.PCW_TTC1_CLK2_PERIPHERAL_DIVISOR0 {1} \
     CONFIG.PCW_TTC1_PERIPHERAL_ENABLE {0} \
-    CONFIG.PCW_UART0_PERIPHERAL_ENABLE {0} \
+    CONFIG.PCW_UART0_BASEADDR {0xE0000000} \
+    CONFIG.PCW_UART0_BAUD_RATE {115200} \
+    CONFIG.PCW_UART0_GRP_FULL_ENABLE {0} \
+    CONFIG.PCW_UART0_HIGHADDR {0xE0000FFF} \
+    CONFIG.PCW_UART0_PERIPHERAL_ENABLE {1} \
+    CONFIG.PCW_UART0_UART0_IO {MIO 14 .. 15} \
     CONFIG.PCW_UART1_BASEADDR {0xE0001000} \
     CONFIG.PCW_UART1_BAUD_RATE {115200} \
     CONFIG.PCW_UART1_GRP_FULL_ENABLE {0} \

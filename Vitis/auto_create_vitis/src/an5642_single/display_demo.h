@@ -39,7 +39,7 @@
 #define DEMO_PATTERN_4 4
 #define DEMO_PATTERN_5 5
 
-#define DEMO_MAX_FRAME (1920*1080*3)
+#define DEMO_MAX_FRAME (1280*720*3)
 #define DEMO_STRIDE (1280 * 3)
 
 /* ------------------------------------------------------------ */

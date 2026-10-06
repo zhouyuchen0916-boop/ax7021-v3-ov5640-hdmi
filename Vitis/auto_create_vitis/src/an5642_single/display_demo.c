@@ -25,6 +25,8 @@
 #include "sleep.h"
 #include "ov5640.h"
 #include "xil_printf.h"
+#include "xuartps_hw.h"
+#include "xtime_l.h"
 /*
  * XPAR redefines
  */
@@ -34,7 +36,8 @@
 #define VID_VTC_IRPT_ID XPS_FPGA3_INT_ID
 #define VID_GPIO_IRPT_ID XPS_FPGA4_INT_ID
 #define SCU_TIMER_ID XPAR_SCUTIMER_DEVICE_ID
-#define UART_BASEADDR XPAR_PS7_UART_1_BASEADDR
+#define UART0_BASEADDR XPAR_PS7_UART_0_BASEADDR
+#define UART1_BASEADDR XPAR_PS7_UART_1_BASEADDR
 
 
 /* ------------------------------------------------------------ */
@@ -49,15 +52,36 @@ XAxiVdma vdma;
 XIicPs ps_i2c0;
 XGpio hdmi_rstn;
 XGpio cmos_rstn;
+volatile u32 g_diag_magic = 0xA7021D1AU;
+volatile u32 g_diag_stage = 0U;
+volatile s32 g_diag_status = 0;
+volatile u32 g_ov5640_id = 0U;
 /*
  * Framebuffers for video data
  */
-u8 frameBuf[DISPLAY_NUM_FRAMES][DEMO_MAX_FRAME] __attribute__ ((aligned(64)));
+/* Large video buffers must not be included in the C runtime BSS clear.
+ * The standalone Cortex-A9 startup code places its mode stacks below the
+ * linker-provided stack symbol; a multi-megabyte BSS would overwrite them
+ * before main().  The buffers are explicitly cleared in display_init(). */
+u8 frameBuf[DISPLAY_NUM_FRAMES][DEMO_MAX_FRAME]
+    __attribute__ ((section(".noinit"), aligned(64)));
 u8 *pFrames[DISPLAY_NUM_FRAMES]; //array of pointers to the frame buffers
 
 /* ------------------------------------------------------------ */
 /*				Procedure Definitions							*/
 /* ------------------------------------------------------------ */
+
+static void diag_flush(void)
+{
+	Xil_DCacheFlushRange((INTPTR)&g_ov5640_id, 64U);
+}
+
+/* Mirror xil_printf output to both AX7021 V3.0 USB-UART ports. */
+void outbyte(char c)
+{
+	XUartPs_SendByte(UART0_BASEADDR, (u8)c);
+	XUartPs_SendByte(UART1_BASEADDR, (u8)c);
+}
 
 
 
@@ -70,27 +94,44 @@ int main(void)
 	u8 chip_id_high;
 	u8 chip_id_low;
 
+	/* Standalone 2023.1 usleep() uses the SCU global timer.  The bare-JTAG
+	 * launch path does not run an FSBL, so enable/reset that counter here. */
+	XTime_SetTime(0U);
+
+	g_diag_stage = 0x10U;
+	diag_flush();
 	xil_printf("\r\nAX7021 OV5640 HDMI demo start\r\n");
+	g_diag_stage = 0x11U;
 
 	/*
 	 * Initialize an array of pointers to the 3 frame buffers
 	 */
 	for (i = 0; i < DISPLAY_NUM_FRAMES; i++)
 	{
+		g_diag_stage = 0x20U + (u32)i;
 		pFrames[i] = frameBuf[i];
 		memset(pFrames[i], 0, DEMO_MAX_FRAME);
 		Xil_DCacheFlushRange((INTPTR) pFrames[i], DEMO_MAX_FRAME) ;
+		g_diag_stage = 0x30U + (u32)i;
 	}
 
+	g_diag_stage = 0x40U;
 	Status = i2c_init(&ps_i2c0, XPAR_XIICPS_0_DEVICE_ID,40000);
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE001U;
+		diag_flush();
 		xil_printf("ERROR: PS I2C initialization failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
+	g_diag_stage = 0x41U;
 	xil_printf("PS I2C ready at 40 kHz\r\n");
 
 	Status = XGpio_Initialize(&hdmi_rstn, XPAR_HDMI_RST_DEVICE_ID);   //initialize GPIO IP
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE002U;
+		diag_flush();
 		xil_printf("ERROR: HDMI reset GPIO initialization failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
@@ -99,6 +140,9 @@ int main(void)
 
 	Status = XGpio_Initialize(&cmos_rstn, XPAR_CMOS_RST_DEVICE_ID);   //initialize GPIO IP
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE003U;
+		diag_flush();
 		xil_printf("ERROR: camera reset GPIO initialization failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
@@ -113,35 +157,54 @@ int main(void)
 	usleep(500000);
 	Status = i2c_reg8_write(&ps_i2c0,0x72>>1,0x08,0x35);
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE004U;
+		diag_flush();
 		xil_printf("ERROR: HDMI transmitter register write failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
 	Status = i2c_reg8_write(&ps_i2c0,0x7a>>1,0x2f,0x00);
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE005U;
+		diag_flush();
 		xil_printf("ERROR: HDMI companion register write failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
 	/*
 	 * Initialize Sensor
 	 */
+	g_diag_stage = 0x60U;
 	Status = ov5640_read(&ps_i2c0, 0x300A, &chip_id_high);
 	if (Status == XST_SUCCESS) {
 		Status = ov5640_read(&ps_i2c0, 0x300B, &chip_id_low);
 	}
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE006U;
+		diag_flush();
 		xil_printf("ERROR: OV5640 chip ID read failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
+	g_ov5640_id = ((u32)chip_id_high << 8) | (u32)chip_id_low;
+	g_diag_stage = 0x61U;
+	diag_flush();
 	xil_printf("OV5640 chip ID: 0x%x%x\r\n", chip_id_high, chip_id_low);
 	if ((chip_id_high != 0x56U) || (chip_id_low != 0x40U)) {
+		g_diag_stage = 0xE007U;
+		diag_flush();
 		xil_printf("ERROR: unexpected camera chip ID\r\n");
 		return XST_FAILURE;
 	}
 	Status = sensor_init(&ps_i2c0);
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE008U;
+		diag_flush();
 		xil_printf("ERROR: OV5640 register initialization failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
+	g_diag_stage = 0x70U;
 	xil_printf("OV5640 configured for 1280x720 RGB output\r\n");
 	/*
 	 * Initialize VDMA driver
@@ -149,12 +212,17 @@ int main(void)
 	vdmaConfig = XAxiVdma_LookupConfig(VGA_VDMA_ID);
 	if (!vdmaConfig)
 	{
+		g_diag_stage = 0xE009U;
+		diag_flush();
 		xil_printf("No video DMA found for ID %d\r\n", VGA_VDMA_ID);
 		return XST_FAILURE;
 	}
 	Status = XAxiVdma_CfgInitialize(&vdma, vdmaConfig, vdmaConfig->BaseAddress);
 	if (Status != XST_SUCCESS)
 	{
+		g_diag_status = Status;
+		g_diag_stage = 0xE00AU;
+		diag_flush();
 		xil_printf("VDMA Configuration Initialization failed %d\r\n", Status);
 		return XST_FAILURE;
 	}
@@ -165,25 +233,36 @@ int main(void)
 	Status = DisplayInitialize(&dispCtrl, &vdma, DISP_VTC_ID, DYNCLK_BASEADDR,pFrames, DEMO_STRIDE);
 	if (Status != XST_SUCCESS)
 	{
+		g_diag_status = Status;
+		g_diag_stage = 0xE00BU;
+		diag_flush();
 		xil_printf("Display Ctrl initialization failed during demo initialization%d\r\n", Status);
 		return XST_FAILURE;
 	}
 	Status = DisplayStart(&dispCtrl);
 	if (Status != XST_SUCCESS)
 	{
+		g_diag_status = Status;
+		g_diag_stage = 0xE00CU;
+		diag_flush();
 		xil_printf("Couldn't start display during demo initialization%d\r\n", Status);
 		return XST_FAILURE;
 	}
 	/* Clear frame buffer */
-	memset(dispCtrl.framePtr[dispCtrl.curFrame], 0, 1920 * 1080 * 3);
+	memset(dispCtrl.framePtr[dispCtrl.curFrame], 0, DEMO_MAX_FRAME);
 	/* Start Sensor Vdma */
 	Status = vdma_write_init(XPAR_AXIVDMA_1_DEVICE_ID,1280 * 3,720,1280 * 3,
 			(unsigned int)dispCtrl.framePtr[dispCtrl.curFrame]);
 	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE00DU;
+		diag_flush();
 		xil_printf("ERROR: camera write VDMA failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
 
+	g_diag_stage = 0x900U;
+	diag_flush();
 	xil_printf("VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720\r\n");
 	while (1) {
 		usleep(1000000);
