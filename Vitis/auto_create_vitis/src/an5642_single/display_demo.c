@@ -38,6 +38,13 @@
 #define SCU_TIMER_ID XPAR_SCUTIMER_DEVICE_ID
 #define UART0_BASEADDR XPAR_PS7_UART_0_BASEADDR
 #define UART1_BASEADDR XPAR_PS7_UART_1_BASEADDR
+#define BBOX_X_MIN 320U
+#define BBOX_X_MAX 960U
+#define BBOX_Y_MIN 180U
+#define BBOX_Y_MAX 540U
+#define BBOX_ENABLE_MASK 0x80000000U
+#define BBOX_PACK(minimum, maximum) \
+	((((u32)(maximum) & 0x0FFFU) << 16) | ((u32)(minimum) & 0x0FFFU))
 
 
 /* ------------------------------------------------------------ */
@@ -52,6 +59,7 @@ XAxiVdma vdma;
 XIicPs ps_i2c0;
 XGpio hdmi_rstn;
 XGpio cmos_rstn;
+XGpio bbox_ctrl;
 volatile u32 g_diag_magic = 0xA7021D1AU;
 volatile u32 g_diag_stage = 0U;
 volatile s32 g_diag_status = 0;
@@ -147,6 +155,24 @@ int main(void)
 		return XST_FAILURE;
 	}
 	XGpio_SetDataDirection(&cmos_rstn, 1, 0x0);            //set GPIO as output
+
+	Status = XGpio_Initialize(&bbox_ctrl, XPAR_BBOX_CTRL_DEVICE_ID);
+	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE00EU;
+		diag_flush();
+		xil_printf("ERROR: bounding-box GPIO initialization failed (%d)\r\n", Status);
+		return XST_FAILURE;
+	}
+	XGpio_SetDataDirection(&bbox_ctrl, 1, 0x00000000U);
+	XGpio_SetDataDirection(&bbox_ctrl, 2, 0x00000000U);
+	XGpio_DiscreteWrite(&bbox_ctrl, 1,
+		BBOX_ENABLE_MASK | BBOX_PACK(BBOX_X_MIN, BBOX_X_MAX));
+	XGpio_DiscreteWrite(&bbox_ctrl, 2, BBOX_PACK(BBOX_Y_MIN, BBOX_Y_MAX));
+	g_diag_stage = 0x50U;
+	xil_printf("BBOX overlay: (%d,%d)-(%d,%d)\r\n",
+		BBOX_X_MIN, BBOX_Y_MIN, BBOX_X_MAX, BBOX_Y_MAX);
+
 	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x1);
 	usleep(500000);
 	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x0);               //set GPIO output value to 0

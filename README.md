@@ -4,9 +4,11 @@
 
 ## 当前数据通路
 
-`AN5642/J16 单路 OV5640 -> DVP 接收 -> XPM 异步 FIFO -> AXI4-Stream -> VDMA S2MM -> DDR -> VDMA MM2S -> VTC/视频输出 -> HDMI OUT`
+`AN5642/J16 单路 OV5640 -> DVP 接收 -> XPM 异步 FIFO -> AXI4-Stream -> VDMA S2MM -> DDR -> VDMA MM2S -> 目标框叠加 -> VTC/视频输出 -> HDMI OUT`
 
 视频软件配置源文件采用 1280×720、RGB888。当前只接入 AN5642 的一个摄像头通道；尚未规定它在双目模组上对应左镜头还是右镜头，接板后以实际画面确认。
+
+当前 PL 端加入了一个 AXI4-Stream 固定框叠加模块。PS 通过双通道 AXI GPIO 写入坐标，默认显示绿色矩形框 `(320,180)–(960,540)`；后续人脸检测程序只需更新同一组寄存器即可移动目标框。
 
 ## 关键文件
 
@@ -22,6 +24,7 @@
 - 裸机应用 ELF：`Vitis/manual_build/an5642_single.elf`
 - JTAG 识别检查：`Vitis/check_jtag.bat`
 - BIT 和 ELF 下载运行：`Vitis/run_jtag.bat`
+- 框叠加 RTL 自检仿真：`Vivado/auto_create_project/run_bbox_overlay_sim.bat`
 - 验证报告：`Vivado/reports/`
 
 ## 从头生成 Vivado 工程
@@ -54,7 +57,7 @@ cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vitis
 .\build_all.bat
 ```
 
-首次执行会从 XSA 创建 Vitis standalone 平台并编译 BSP，通常需要几分钟；随后使用 Vitis 2023.1 自带的 `arm-none-eabi-gcc` 构建应用。若重新生成了 XSA，应先删除生成目录 `Vitis/design_1_wrapper`，再执行上述命令。应用源码位于 `Vitis/auto_create_vitis/src/an5642_single`，可只执行 `Vitis/manual_build/build.bat` 快速重编应用。
+首次执行会从 XSA 创建 Vitis standalone 平台并编译 BSP，通常需要几分钟；随后使用 Vitis 2023.1 自带的 `arm-none-eabi-gcc` 构建应用。若重新生成了 XSA，先执行 `Vitis/auto_create_vitis/update_platform.bat` 更新现有平台，再执行 `Vitis/build_all.bat`。也可以删除生成目录 `Vitis/design_1_wrapper` 后直接运行 `build_all.bat` 完整重建。应用源码位于 `Vitis/auto_create_vitis/src/an5642_single`，可只执行 `Vitis/manual_build/build.bat` 快速重编应用。
 
 裸 JTAG 启动不会执行 FSBL，因此应用在 `main()` 开始处调用 `XTime_SetTime(0)` 启动 SCU 全局定时器；否则 standalone 的 `usleep()` 会一直等待。三帧 1280×720 RGB888 缓存放在链接脚本的 `.noinit` 区，并在其上方预留启动栈保护区，避免 C 运行库清零 BSS 时覆盖 Cortex-A9 异常栈。
 
@@ -89,6 +92,7 @@ AX7021 OV5640 HDMI demo start
 PS I2C ready at 40 kHz
 OV5640 chip ID: 0x5640
 OV5640 configured for 1280x720 RGB output
+BBOX overlay: (320,180)-(960,540)
 VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720
 ```
 
@@ -99,16 +103,17 @@ VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720
 构建日期：2026-10-06。
 
 - 实现和比特流生成：成功，0 Error、0 Critical Warning
-- 时序：WNS `+0.522 ns`，TNS `0 ns`，WHS `+0.043 ns`，THS `0 ns`
+- 框叠加 RTL 自检仿真：通过，输出 `BBOX_SIM_PASS`
+- 时序：WNS `+0.567 ns`，TNS `0 ns`，WHS `+0.028 ns`，THS `0 ns`
 - 布线：0 条失败网络，0 条未布线网络
-- CDC：摄像头 `fifo_ready` 使用两级同步器并被识别为 `CDC-3`；像素数据由 XPM 异步 FIFO 跨域
-- 资源：6768 LUT、11392 FF、14 RAMB36、3 RAMB18、0 DSP
-- BIT SHA-256：`5FED6619B4A8A151FA1214D5D3CDC6B05CB4A180A5D6DBDFB570D42655713930`
-- XSA SHA-256：`366ED5E1362BF0167CD12DAA5A6D3B33FDA4814452F4C3E4FD46074958224CD9`
+- CDC：框坐标的 49 条有效跨域位均通过两级 `ASYNC_REG` 同步并被识别为 `CDC-3`；摄像头像素数据由 XPM 异步 FIFO 跨域
+- 资源：6961 LUT、11737 FF、14 RAMB36、3 RAMB18、0 DSP；其中框叠加模块使用 130 LUT、122 FF
+- BIT SHA-256：`093AC006F852BEC76E448B8D9FB3687B4389067F6D2F1598D371FA64E7098231`
+- XSA SHA-256：`6059051F9B5E1149EF2F71C76846AC14CC28E2A44F378E8DAF6A033A220A6D57`
 - Vitis standalone BSP：成功构建，stdin/stdout 均为 `ps7_uart_1`
 - 裸机应用：成功构建，0 编译错误、0 编译警告；ELF32 ARM hard-float，入口地址 `0x00100000`
-- ELF 代码/数据/size 工具统计：57864 B / 2660 B / 8430520 B；其中 `.bss` 为 0xBB8，三帧缓存位于 `.noinit`，大小为 0x7E9000
-- ELF SHA-256：`6F6C110D30021F00D34E9D40EB892D6937C6578FD3487F9824E665E3E8A11854`
+- ELF 代码/数据/BSS 统计：58160 B / 2676 B / 8430520 B；三帧缓存位于 `.noinit`
+- ELF SHA-256：`909A416310486D937344C7DA55654BE3E4649F9E00441EC102F65612FF8A1D7B`
 
 ## 仓库内容与提交范围
 
@@ -132,4 +137,5 @@ README.md               构建、接线、验证边界和运行说明
 - 其余 `PDCN-1569`、`RTSTAT-10`、`LUTAR-1`、`PDRC-190` 指向 AMD 调试核或 AXI/IP 内部逻辑，没有阻止比特流生成。
 - 2026-10-06 实板验证：JTAG 链枚举出 Digilent JTAG-HS1、ARM Cortex-A9 和 `xc7z020`；AX7021 的 CP210x UART 枚举为 COM3，串口 115200 8N1 输出了 `OV5640 chip ID: 0x5640`、`OV5640 configured for 1280x720 RGB output` 和 `VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720`。异常地址保持为 0，诊断阶段为 0x900。
 - JTAG 读取帧缓存时，第二、第三帧缓存地址出现稳定的非零像素数据；这证明 OV5640→DVP→VDMA S2MM→DDR 正在写入。VDMA、VTC、动态时钟和两个复位 GPIO 均已读到运行态寄存器值。HDMI OUT 经 USB HDMI 采集卡接入电脑后，OBS 已显示实时摄像头画面，摄像头到 HDMI 的完整基础通路通过实板验证。
-- 当前没有人脸检测硬件加速器，资源报告中的 DSP 数量为 0。完成摄像头到 HDMI 的实板验证后，再接入量化检测网络。
+- 固定绿色框版本已完成 Vivado 实现、时序检查、XSA 平台更新和裸机应用编译。生成该版本后复测时，电脑未枚举到串口或 JTAG 设备，因此新版 BIT/ELF 尚待重新接线下载，并在 OBS 中确认绿色框可见。
+- 当前没有人脸检测硬件加速器，资源报告中的 DSP 数量为 0。固定框通过实板验证后，再接入量化检测网络并用检测结果动态更新框坐标。

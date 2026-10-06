@@ -13,5 +13,6 @@ puts "DYNCLK_END"
 puts "GPIO_BEGIN"
 puts [mrd -force 0x41200000 2]
 puts [mrd -force 0x41210000 2]
+puts [mrd -force 0x41220000 4]
 puts "GPIO_END"
 disconnect

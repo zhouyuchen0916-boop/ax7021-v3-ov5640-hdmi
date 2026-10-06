@@ -7,6 +7,12 @@ Vivado/**/*.runs/
 Vivado/**/*.hw/
 Vivado/**/*.ip_user_files/
 Vivado/**/*.sim/
+Vivado/**/sim/xsim.dir/
+Vivado/**/sim/bbox_overlay_sim_project/
+Vivado/**/sim/*.log
+Vivado/**/sim/*.jou
+Vivado/**/sim/*.pb
+Vivado/**/sim/*.wdb
 Vivado/**/*.backup/
 Vivado/**/*.dcp
 Vivado/**/*.jou
@@ -21,6 +27,8 @@ Vitis/manual_build/build/
 Vitis/manual_build/*.map
 Vitis/manual_build/*.su
 Vitis/tmp/
+Vitis/.analytics
+Vitis/IDE.log
 
 # Local tool/editor state
 .metadata/

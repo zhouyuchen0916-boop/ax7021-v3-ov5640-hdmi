@@ -57,6 +57,9 @@ file mkdir $projpath/$proj_name/$proj_name.srcs/sim_1/new
 # 添加自定义IP
 set_property  ip_repo_paths  $tclpath/my_ip [current_project]
 update_ip_catalog
+# 添加目标框叠加 RTL，供 Block Design 以 Module Reference 使用
+add_files -fileset sources_1 -norecurse $tclpath/src/rtl/axis_bbox_overlay.v
+update_compile_order -fileset sources_1
 #*********************************************************************************************************
 #create_bd_design "$bdname"
 create_bd_design $bdname
