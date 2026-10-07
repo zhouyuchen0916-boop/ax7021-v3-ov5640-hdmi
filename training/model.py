@@ -21,6 +21,18 @@ class TinyFaceDetector(nn.Module):
         self.bn2 = nn.BatchNorm2d(16)
         self.conv3 = nn.Conv2d(16, 24, 3, stride=2, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(24)
+        self.context1_dw = nn.Conv2d(
+            24, 24, 3, padding=2, dilation=2, groups=24, bias=False
+        )
+        self.context1_dw_bn = nn.BatchNorm2d(24)
+        self.context1_pw = nn.Conv2d(24, 24, 1, bias=False)
+        self.context1_pw_bn = nn.BatchNorm2d(24)
+        self.context2_dw = nn.Conv2d(
+            24, 24, 3, padding=4, dilation=4, groups=24, bias=False
+        )
+        self.context2_dw_bn = nn.BatchNorm2d(24)
+        self.context2_pw = nn.Conv2d(24, 24, 1, bias=False)
+        self.context2_pw_bn = nn.BatchNorm2d(24)
         self.head = nn.Conv2d(24, 5, 1, bias=True)
         self.relu = nn.ReLU(inplace=True)
 
@@ -28,6 +40,10 @@ class TinyFaceDetector(nn.Module):
         features = self.relu(self.bn1(self.conv1(image)))
         features = self.relu(self.bn2(self.conv2(features)))
         features = self.relu(self.bn3(self.conv3(features)))
+        features = self.relu(self.context1_dw_bn(self.context1_dw(features)))
+        features = self.relu(self.context1_pw_bn(self.context1_pw(features)))
+        features = self.relu(self.context2_dw_bn(self.context2_dw(features)))
+        features = self.relu(self.context2_pw_bn(self.context2_pw(features)))
         return self.head(features)
 
 
@@ -37,6 +53,10 @@ def count_macs() -> int:
         80 * 60 * 8 * 1 * 3 * 3
         + 40 * 30 * 16 * 8 * 3 * 3
         + 20 * 15 * 24 * 16 * 3 * 3
+        + 20 * 15 * 24 * 1 * 3 * 3
+        + 20 * 15 * 24 * 24
+        + 20 * 15 * 24 * 1 * 3 * 3
+        + 20 * 15 * 24 * 24
         + 20 * 15 * 5 * 24
     )
 
@@ -76,3 +96,34 @@ def decode_predictions(
                 )
         batches.append(boxes)
     return batches
+
+
+def box_iou(
+    first: tuple[float, float, float, float, float],
+    second: tuple[float, float, float, float, float],
+) -> float:
+    """Return intersection-over-union for two decoded boxes."""
+    left = max(first[0], second[0])
+    top = max(first[1], second[1])
+    right = min(first[2], second[2])
+    bottom = min(first[3], second[3])
+    intersection = max(0.0, right - left) * max(0.0, bottom - top)
+    first_area = max(0.0, first[2] - first[0]) * max(0.0, first[3] - first[1])
+    second_area = max(0.0, second[2] - second[0]) * max(0.0, second[3] - second[1])
+    union = first_area + second_area - intersection
+    return intersection / union if union > 0.0 else 0.0
+
+
+def non_max_suppression(
+    boxes: list[tuple[float, float, float, float, float]],
+    iou_threshold: float = 0.35,
+    max_detections: int = 10,
+) -> list[tuple[float, float, float, float, float]]:
+    """Suppress overlapping boxes, keeping the highest confidence first."""
+    remaining = sorted(boxes, key=lambda box: box[4], reverse=True)
+    selected: list[tuple[float, float, float, float, float]] = []
+    while remaining and len(selected) < max_detections:
+        best = remaining.pop(0)
+        selected.append(best)
+        remaining = [box for box in remaining if box_iou(best, box) < iou_threshold]
+    return selected

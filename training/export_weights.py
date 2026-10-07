@@ -47,6 +47,10 @@ def export_checkpoint(checkpoint_path: Path, output_dir: Path) -> dict[str, obje
         ("conv1", model.conv1, model.bn1),
         ("conv2", model.conv2, model.bn2),
         ("conv3", model.conv3, model.bn3),
+        ("context1_dw", model.context1_dw, model.context1_dw_bn),
+        ("context1_pw", model.context1_pw, model.context1_pw_bn),
+        ("context2_dw", model.context2_dw, model.context2_dw_bn),
+        ("context2_pw", model.context2_pw, model.context2_pw_bn),
         ("head", model.head, None),
     ]
     manifest_layers: list[dict[str, object]] = []
@@ -64,6 +68,10 @@ def export_checkpoint(checkpoint_path: Path, output_dir: Path) -> dict[str, obje
             {
                 "name": name,
                 "weight_shape_oihw": list(quantized_weight.shape),
+                "stride": list(convolution.stride),
+                "padding": list(convolution.padding),
+                "dilation": list(convolution.dilation),
+                "groups": convolution.groups,
                 "weight_count": int(quantized_weight.size),
                 "weight_order": "OIHW",
                 "weight_format": "signed_int8_twos_complement_hex",

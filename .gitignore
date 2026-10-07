@@ -51,3 +51,13 @@ __pycache__/
 *.py[cod]
 Thumbs.db
 Desktop.ini
+
+# LPYOLO local dependencies, downloaded source trees and generated products
+third_party/lpyolo/python_deps/
+third_party/lpyolo/outputs/
+third_party/lpyolo/4w4a_onnx.zip
+third_party/lpyolo/source/
+third_party/finn-0.7/
+third_party/lpyolo/finn_build_ax7021/output_*/
+vitis_hls.log
+vitis_hls.jou

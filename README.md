@@ -2,6 +2,12 @@
 
 本工程使用 Vivado/Vitis 2023.1，目标器件为 AX7021 V3.0 上的 `xc7z020clg484-2`。当前阶段已完成单路 OV5640 采集、DDR 帧缓存、HDMI 输出硬件平台和 Zynq 裸机控制程序，作为后续人脸检测加速器的基础。
 
+## 当前人脸检测路线
+
+当前采用公开预训练的 **LPYOLO 4W4A**，输入为 416×416 RGB UINT8，输出为 13×13×18 检测张量。原先 `training/` 中的自研 tiny 模型已停止推进，仅保留为历史实验；后续工作以 `third_party/lpyolo/` 中的 ONNX、软件参考推理、FINN 0.7 构建和 AX7021 集成为准。
+
+2026-10-07 已从 AX7021 的 OV5640/DDR 通路采集真实帧，并在 PC 端参考推理中检出人脸。DDR 导出预览中自然颜色对应 `Vitis/captures/frame_bgr.png`；送入 LPYOLO 前按官方实现转换为 RGB。实测框为 `(657,342)–(939,608)`，置信度约 0.021，使用作者推荐阈值 0.02。
+
 ## 当前数据通路
 
 `AN5642/J16 单路 OV5640 -> DVP 接收 -> XPM 异步 FIFO -> AXI4-Stream -> VDMA S2MM -> DDR -> VDMA MM2S -> 目标框叠加 -> VTC/视频输出 -> HDMI OUT`
@@ -26,7 +32,8 @@
 - BIT 和 ELF 下载运行：`Vitis/run_jtag.bat`
 - 框叠加 RTL 自检仿真：`Vivado/auto_create_project/run_bbox_overlay_sim.bat`
 - DDR 完整帧采集：`Vitis/capture_frame.bat`
-- PC 端模型训练与量化：`training/`
+- LPYOLO 模型、参考推理与 FINN 构建：`third_party/lpyolo/`
+- 历史自研训练实验（停止推进）：`training/`
 - 人脸检测加速器结构：`docs/face_detector_architecture.md`
 - 验证报告：`Vivado/reports/`
 
