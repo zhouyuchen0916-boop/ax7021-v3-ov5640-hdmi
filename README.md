@@ -25,6 +25,9 @@
 - JTAG 识别检查：`Vitis/check_jtag.bat`
 - BIT 和 ELF 下载运行：`Vitis/run_jtag.bat`
 - 框叠加 RTL 自检仿真：`Vivado/auto_create_project/run_bbox_overlay_sim.bat`
+- DDR 完整帧采集：`Vitis/capture_frame.bat`
+- PC 端模型训练与量化：`training/`
+- 人脸检测加速器结构：`docs/face_detector_architecture.md`
 - 验证报告：`Vivado/reports/`
 
 ## 从头生成 Vivado 工程

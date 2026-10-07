@@ -27,6 +27,10 @@ Vitis/manual_build/build/
 Vitis/manual_build/*.map
 Vitis/manual_build/*.su
 Vitis/tmp/
+Vitis/captures/
+training/outputs/
+__pycache__/
+*.py[cod]
 Vitis/.analytics
 Vitis/IDE.log
 

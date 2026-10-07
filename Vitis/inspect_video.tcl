@@ -4,6 +4,9 @@ catch {stop}
 puts "VDMA_BEGIN"
 puts [mrd -force 0x43000000 16]
 puts "VDMA_END"
+puts "VDMA_S2MM_BEGIN"
+puts [mrd -force 0x43010000 16]
+puts "VDMA_S2MM_END"
 puts "VTC_BEGIN"
 puts [mrd -force 0x43C00000 8]
 puts "VTC_END"

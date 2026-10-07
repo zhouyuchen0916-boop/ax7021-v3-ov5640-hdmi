@@ -122,6 +122,8 @@ int main(void)
 		Xil_DCacheFlushRange((INTPTR) pFrames[i], DEMO_MAX_FRAME) ;
 		g_diag_stage = 0x30U + (u32)i;
 	}
+	xil_printf("FRAME buffers: 0x%x 0x%x 0x%x\r\n",
+		(u32)pFrames[0], (u32)pFrames[1], (u32)pFrames[2]);
 
 	g_diag_stage = 0x40U;
 	Status = i2c_init(&ps_i2c0, XPAR_XIICPS_0_DEVICE_ID,40000);
