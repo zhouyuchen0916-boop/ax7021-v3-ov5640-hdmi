@@ -137,5 +137,5 @@ README.md               构建、接线、验证边界和运行说明
 - 其余 `PDCN-1569`、`RTSTAT-10`、`LUTAR-1`、`PDRC-190` 指向 AMD 调试核或 AXI/IP 内部逻辑，没有阻止比特流生成。
 - 2026-10-06 实板验证：JTAG 链枚举出 Digilent JTAG-HS1、ARM Cortex-A9 和 `xc7z020`；AX7021 的 CP210x UART 枚举为 COM3，串口 115200 8N1 输出了 `OV5640 chip ID: 0x5640`、`OV5640 configured for 1280x720 RGB output` 和 `VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720`。异常地址保持为 0，诊断阶段为 0x900。
 - JTAG 读取帧缓存时，第二、第三帧缓存地址出现稳定的非零像素数据；这证明 OV5640→DVP→VDMA S2MM→DDR 正在写入。VDMA、VTC、动态时钟和两个复位 GPIO 均已读到运行态寄存器值。HDMI OUT 经 USB HDMI 采集卡接入电脑后，OBS 已显示实时摄像头画面，摄像头到 HDMI 的完整基础通路通过实板验证。
-- 固定绿色框版本已完成 Vivado 实现、时序检查、XSA 平台更新和裸机应用编译。生成该版本后复测时，电脑未枚举到串口或 JTAG 设备，因此新版 BIT/ELF 尚待重新接线下载，并在 OBS 中确认绿色框可见。
+- 2026-10-07 固定绿色框版本已通过 JTAG 下载到实板。串口输出了 `BBOX overlay: (320,180)-(960,540)`、`OV5640 chip ID: 0x5640` 和 `VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720`。JTAG 回读框控制寄存器得到 `0x41220000 = 0x83C00140`、`0x41220008 = 0x021C00B4`，分别对应使能位、X 坐标 320–960 和 Y 坐标 180–540；还需在 OBS 中目视确认绿色框的位置和颜色。
 - 当前没有人脸检测硬件加速器，资源报告中的 DSP 数量为 0。固定框通过实板验证后，再接入量化检测网络并用检测结果动态更新框坐标。
