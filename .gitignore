@@ -29,6 +29,10 @@ Vitis/manual_build/*.su
 Vitis/tmp/
 Vitis/captures/
 training/outputs/
+training/field_dataset/images/
+training/field_dataset/field_annotations.txt
+training/field_dataset/field_rejected.txt
+training/datasets/
 __pycache__/
 *.py[cod]
 Vitis/.analytics
@@ -61,3 +65,11 @@ third_party/finn-0.7/
 third_party/lpyolo/finn_build_ax7021/output_*/
 vitis_hls.log
 vitis_hls.jou
+hls/build/
+hls/tiny_face_hls/
+hls/output/
+hls/*.log
+hls/*.jou
+hls/*.exe
+hls/*.exe.tmp*
+hls/tmp/

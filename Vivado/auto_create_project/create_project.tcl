@@ -34,6 +34,10 @@ set projpath [pwd]
 cd ..
 set Vitispath [pwd]
 set bdname "design_1"
+set validate_only 0
+if {[llength $argv] > 0 && [lindex $argv 0] eq "validate"} {
+  set validate_only 1
+}
 #创建工程
 #**********************************************************************************************************
 create_project -force $proj_name $projpath/$proj_name -part xc7z020clg484-2
@@ -54,8 +58,13 @@ if {[string equal [get_filesets -quiet sim_1] ""]} {
   create_fileset -simset sim_1
 }
 file mkdir $projpath/$proj_name/$proj_name.srcs/sim_1/new
-# 添加自定义IP
-set_property  ip_repo_paths  $tclpath/my_ip [current_project]
+# 添加板级自定义 IP 和训练模型生成的 HLS IP。
+# 首次重建前先运行项目根目录下的 hls/build_hls.bat all。
+set hls_ip_repo $Vitispath/hls/tiny_face_hls/solution1/impl/ip
+if {![file exists $hls_ip_repo/component.xml]} {
+  error "tiny_face_accel IP not found. Run hls/build_hls.bat all first: $hls_ip_repo"
+}
+set_property ip_repo_paths [list $tclpath/my_ip $hls_ip_repo] [current_project]
 update_ip_catalog
 # 添加目标框叠加 RTL，供 Block Design 以 Module Reference 使用
 add_files -fileset sources_1 -norecurse $tclpath/src/rtl/axis_bbox_overlay.v
@@ -72,6 +81,10 @@ source $tclpath/pl_config.tcl
 regenerate_bd_layout
 validate_bd_design
 save_bd_design
+if {$validate_only} {
+  puts "BD_VALIDATE_ONLY_OK"
+  exit
+}
 make_wrapper -files [get_files $projpath/$proj_name/$proj_name.srcs/sources_1/bd/$bdname/$bdname.bd] -top
 add_files -norecurse [glob -nocomplain $projpath/$proj_name/$proj_name.gen/sources_1/bd/$bdname/hdl/*.v]
 puts $bdname

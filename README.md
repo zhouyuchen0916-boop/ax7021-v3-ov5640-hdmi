@@ -1,20 +1,20 @@
 # AX7021 V3.0 + AN5642 单路 OV5640 到 HDMI 基础工程
 
-本工程使用 Vivado/Vitis 2023.1，目标器件为 AX7021 V3.0 上的 `xc7z020clg484-2`。当前阶段已完成单路 OV5640 采集、DDR 帧缓存、HDMI 输出硬件平台和 Zynq 裸机控制程序，作为后续人脸检测加速器的基础。
+本工程使用 Vivado/Vitis 2023.1，目标器件为 AX7021 V3.0 上的 `xc7z020clg484-2`。当前阶段已完成单路 OV5640 采集、DDR 帧缓存、HDMI 输出、TinyFace INT8 HLS 加速核和 Zynq 裸机控制程序。
 
 ## 当前人脸检测路线
 
-当前采用公开预训练的 **LPYOLO 4W4A**，输入为 416×416 RGB UINT8，输出为 13×13×18 检测张量。原先 `training/` 中的自研 tiny 模型已停止推进，仅保留为历史实验；后续工作以 `third_party/lpyolo/` 中的 ONNX、软件参考推理、FINN 0.7 构建和 AX7021 集成为准。
+当前可综合、可下载的实现采用 `training/outputs/tiny_face_fddb.pt` 导出的 **TinyFace INT8 HLS 加速核**。加速核输入为 160×120 灰度 UINT8，输出为 15×20×5 的 INT32 检测张量；权值和量化参数编译进 PL 端 ROM。PS 从当前 1280×720 RGB888 帧抽样，启动 HLS 核并解码输出，再通过 AXI GPIO 更新视频叠加框。
 
-2026-10-07 已从 AX7021 的 OV5640/DDR 通路采集真实帧，并在 PC 端参考推理中检出人脸。DDR 导出预览中自然颜色对应 `Vitis/captures/frame_bgr.png`；送入 LPYOLO 前按官方实现转换为 RGB。实测框为 `(657,342)–(939,608)`，置信度约 0.021，使用作者推荐阈值 0.02。
+`third_party/lpyolo/` 保留了 LPYOLO 4W4A 的 ONNX 与 PC 端参考推理实验，但 FINN 版本尚未集成到当前 AX7021 比特流。仓库中的 BIT、XSA 和 ELF 对应 TinyFace HLS 路线，二者不能混用。
 
 ## 当前数据通路
 
-`AN5642/J16 单路 OV5640 -> DVP 接收 -> XPM 异步 FIFO -> AXI4-Stream -> VDMA S2MM -> DDR -> VDMA MM2S -> 目标框叠加 -> VTC/视频输出 -> HDMI OUT`
+`AN5642/J16 单路 OV5640 -> DVP 接收 -> XPM 异步 FIFO -> AXI4-Stream -> VDMA S2MM -> DDR -> PS 抽样 -> TinyFace HLS/DDR -> PS 解码坐标 -> AXI GPIO -> 目标框叠加 -> VTC/视频输出 -> HDMI OUT`
 
 视频软件配置源文件采用 1280×720、RGB888。当前只接入 AN5642 的一个摄像头通道；尚未规定它在双目模组上对应左镜头还是右镜头，接板后以实际画面确认。
 
-当前 PL 端加入了一个 AXI4-Stream 固定框叠加模块。PS 通过双通道 AXI GPIO 写入坐标，默认显示绿色矩形框 `(320,180)–(960,540)`；后续人脸检测程序只需更新同一组寄存器即可移动目标框。
+当前 PL 端加入了 AXI4-Stream 矩形框叠加模块。程序启动时先写入绿色测试框 `(320,180)–(960,540)`，进入推理循环后由检测结果更新坐标；没有检测到人脸或推理出错时关闭框。现有叠加器只有一组坐标寄存器，因此画面仅显示置信度最高的一张脸。
 
 ## 关键文件
 
@@ -32,8 +32,9 @@
 - BIT 和 ELF 下载运行：`Vitis/run_jtag.bat`
 - 框叠加 RTL 自检仿真：`Vivado/auto_create_project/run_bbox_overlay_sim.bat`
 - DDR 完整帧采集：`Vitis/capture_frame.bat`
-- LPYOLO 模型、参考推理与 FINN 构建：`third_party/lpyolo/`
-- 历史自研训练实验（停止推进）：`training/`
+- TinyFace HLS 源码、测试平台和已打包 IP：`hls/`
+- 训练、评估和 INT8 校准工具：`training/`
+- LPYOLO 模型与 PC 端参考实验：`third_party/lpyolo/`
 - 人脸检测加速器结构：`docs/face_detector_architecture.md`
 - 验证报告：`Vivado/reports/`
 
@@ -44,11 +45,14 @@
 在 Windows 命令提示符或 PowerShell 中执行：
 
 ```powershell
+cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base
+.\hls\build_hls.bat all
+
 cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vivado\auto_create_project
 .\create_project.bat
 ```
 
-脚本会创建 Block Design、综合、实现、生成比特流、生成验证报告，并导出包含比特流的 XSA。成功标志为日志中的 `BUILD_OK`。
+第一条命令使用仓库中已提交的 INT8 参数头文件运行 C 仿真、HLS 综合并打包 `tiny_face_accel` IP，不需要下载训练检查点。随后 Vivado 脚本会创建 Block Design、综合、实现、生成比特流、生成验证报告，并导出包含比特流的 XSA。HLS 成功标志为 `HLS_CSIM_MISMATCHES=0`，Vivado 成功标志为日志中的 `BUILD_OK`。
 
 只修改约束且已有工程时，可执行：
 
@@ -104,26 +108,29 @@ OV5640 chip ID: 0x5640
 OV5640 configured for 1280x720 RGB output
 BBOX overlay: (320,180)-(960,540)
 VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720
+FACE: (420,180)-(690,510), score=873/1000
 ```
 
 只有看到 `OV5640 chip ID: 0x5640`，才能确认摄像头的供电、复位和 SCCB/I²C 通信已建立；只有显示器出现稳定画面，才能确认完整的摄像头到 HDMI 通路跑通。
 
 ## 最终构建验证
 
-构建日期：2026-10-06。
+构建日期：2026-10-08。
 
-- 实现和比特流生成：成功，0 Error、0 Critical Warning
+- 实现和比特流生成：成功，0 Error
 - 框叠加 RTL 自检仿真：通过，输出 `BBOX_SIM_PASS`
-- 时序：WNS `+0.567 ns`，TNS `0 ns`，WHS `+0.028 ns`，THS `0 ns`
+- HLS C 仿真：1500 个输出全部匹配，最大误差 0
+- HLS 综合：估算延迟 4247755 周期，100 MHz 下约 42.48 ms
+- 时序：WNS `+0.201 ns`，TNS `0 ns`，WHS `+0.036 ns`，THS `0 ns`
 - 布线：0 条失败网络，0 条未布线网络
-- CDC：框坐标的 49 条有效跨域位均通过两级 `ASYNC_REG` 同步并被识别为 `CDC-3`；摄像头像素数据由 XPM 异步 FIFO 跨域
-- 资源：6961 LUT、11737 FF、14 RAMB36、3 RAMB18、0 DSP；其中框叠加模块使用 130 LUT、122 FF
-- BIT SHA-256：`093AC006F852BEC76E448B8D9FB3687B4389067F6D2F1598D371FA64E7098231`
-- XSA SHA-256：`6059051F9B5E1149EF2F71C76846AC14CC28E2A44F378E8DAF6A033A220A6D57`
+- CDC：摄像头像素数据由 XPM 异步 FIFO 跨域；报告中的 1 条 `CDC-6` 位于 VTC，2 条 `CDC-15` 位于 AXI Clock Converter 内部
+- 资源：12877 LUT、18423 FF、57 RAMB36、12 RAMB18、39 DSP
+- BIT SHA-256：`CBFAD889E686F2445875F0DABA8E9718E9FDE48481A94C43E0EB46C03D726BE9`
+- XSA SHA-256：`D26923241E83BA4ED2825F6903EFA1FC385BE24A88AAC3A5A78AE136E7F95B6A`
 - Vitis standalone BSP：成功构建，stdin/stdout 均为 `ps7_uart_1`
 - 裸机应用：成功构建，0 编译错误、0 编译警告；ELF32 ARM hard-float，入口地址 `0x00100000`
-- ELF 代码/数据/BSS 统计：58160 B / 2676 B / 8430520 B；三帧缓存位于 `.noinit`
-- ELF SHA-256：`909A416310486D937344C7DA55654BE3E4649F9E00441EC102F65612FF8A1D7B`
+- ELF 代码/数据/BSS 统计：60696 B / 2676 B / 8430520 B；三帧缓存位于 `.noinit`
+- ELF SHA-256：`957549D7624E2A4C228B7949C95C8476CBC31FCC72012FB9172372A0B3354AA4`
 
 ## 仓库内容与提交范围
 
@@ -143,9 +150,9 @@ README.md               构建、接线、验证边界和运行说明
 
 - OV5640 PCLK 位于板卡固定引脚 AB9，该引脚不是专用时钟引脚，因此保留 `CLOCK_DEDICATED_ROUTE FALSE` 和 `PLCK-12` 警告。这来自板卡走线，最终内部时序已通过，但仍需上板验证图像稳定性。
 - OV5640 的 10 位数据、HREF、VSYNC 尚未加入板级 `set_input_delay`。准确数值依赖摄像头寄存器配置、模组和 PCB 走线，不能仅凭参考工程臆造。
-- `TIMING-9/CDC-6` 位于 AMD Video Timing Controller 自带的 AXI-Lite 多位 CDC 逻辑；摄像头自定义 CDC 已修正。
+- `CDC-6` 位于 AMD Video Timing Controller 自带的 AXI-Lite 多位 CDC 逻辑；两条 `CDC-15` 位于自动生成的 AXI Clock Converter，摄像头自定义 CDC 已修正。
 - 其余 `PDCN-1569`、`RTSTAT-10`、`LUTAR-1`、`PDRC-190` 指向 AMD 调试核或 AXI/IP 内部逻辑，没有阻止比特流生成。
 - 2026-10-06 实板验证：JTAG 链枚举出 Digilent JTAG-HS1、ARM Cortex-A9 和 `xc7z020`；AX7021 的 CP210x UART 枚举为 COM3，串口 115200 8N1 输出了 `OV5640 chip ID: 0x5640`、`OV5640 configured for 1280x720 RGB output` 和 `VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720`。异常地址保持为 0，诊断阶段为 0x900。
 - JTAG 读取帧缓存时，第二、第三帧缓存地址出现稳定的非零像素数据；这证明 OV5640→DVP→VDMA S2MM→DDR 正在写入。VDMA、VTC、动态时钟和两个复位 GPIO 均已读到运行态寄存器值。HDMI OUT 经 USB HDMI 采集卡接入电脑后，OBS 已显示实时摄像头画面，摄像头到 HDMI 的完整基础通路通过实板验证。
 - 2026-10-07 固定绿色框版本已通过 JTAG 下载到实板。串口输出了 `BBOX overlay: (320,180)-(960,540)`、`OV5640 chip ID: 0x5640` 和 `VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720`。JTAG 回读框控制寄存器得到 `0x41220000 = 0x83C00140`、`0x41220008 = 0x021C00B4`，分别对应使能位、X 坐标 320–960 和 Y 坐标 180–540；OBS 已确认绿色矩形框的位置、颜色和视频画面均正常。
-- 当前没有人脸检测硬件加速器，资源报告中的 DSP 数量为 0。固定框通过实板验证后，再接入量化检测网络并用检测结果动态更新框坐标。
+- TinyFace INT8 HLS 加速器已经完成 C 仿真、综合、Vivado 集成、实现、比特流和裸机程序构建。当前新版 BIT/ELF 尚未完成实板下载，因此动态人脸框的硬件行为仍需通过 OBS 画面和串口 `FACE:` 输出验证。

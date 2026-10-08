@@ -27,6 +27,7 @@
 #include "xil_printf.h"
 #include "xuartps_hw.h"
 #include "xtime_l.h"
+#include "tiny_face_runtime.h"
 /*
  * XPAR redefines
  */
@@ -292,8 +293,42 @@ int main(void)
 	g_diag_stage = 0x900U;
 	diag_flush();
 	xil_printf("VIDEO RUNNING: camera -> DDR -> HDMI, 1280x720\r\n");
+	u32 detector_iterations = 0U;
+	int detector_error_reported = 0;
 	while (1) {
-		usleep(1000000);
+		TinyFaceBox detected_box;
+		int detector_status = tiny_face_infer(dispCtrl.framePtr[dispCtrl.curFrame],
+				1280U, 720U, DEMO_STRIDE, &detected_box);
+		++detector_iterations;
+		if (detector_status > 0 && detected_box.valid) {
+			XGpio_DiscreteWrite(&bbox_ctrl, 1,
+				BBOX_ENABLE_MASK | BBOX_PACK(detected_box.x_min, detected_box.x_max));
+			XGpio_DiscreteWrite(&bbox_ctrl, 2,
+				BBOX_PACK(detected_box.y_min, detected_box.y_max));
+			if ((detector_iterations % 20U) == 0U) {
+				u32 score_milli = (u32)(detected_box.score * 1000.0f);
+				xil_printf("FACE: (%d,%d)-(%d,%d), score=%d/1000\r\n",
+					detected_box.x_min, detected_box.y_min,
+					detected_box.x_max, detected_box.y_max, score_milli);
+			}
+		} else if (detector_status == 0) {
+			XGpio_DiscreteWrite(&bbox_ctrl, 1, 0U);
+			XGpio_DiscreteWrite(&bbox_ctrl, 2, 0U);
+			if ((detector_iterations % 20U) == 0U) {
+				xil_printf("FACE: none\r\n");
+			}
+		} else {
+			XGpio_DiscreteWrite(&bbox_ctrl, 1, 0U);
+			XGpio_DiscreteWrite(&bbox_ctrl, 2, 0U);
+			if (!detector_error_reported) {
+				xil_printf("ERROR: tiny_face inference failed (%d)\r\n",
+					detector_status);
+				detector_error_reported = 1;
+			}
+		}
+		/* The HLS core takes about 42 ms at 100 MHz; this cadence leaves a
+		 * small margin while keeping the detector close to real time. */
+		usleep(50000);
 	}
 
 	return 0;

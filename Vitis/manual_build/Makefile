@@ -14,10 +14,11 @@ CFLAGS := -O2 -g -Wall -Wextra -ffunction-sections -fdata-sections \
           -I$(SRC_ROOT)/dynclk -I$(SRC_ROOT)/i2c
 LDFLAGS := -mcpu=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard \
            -Wl,-T,lscript.ld -Wl,--gc-sections -L$(LIB_DIR)
-LDLIBS := -Wl,--start-group -lxil -lgcc -lc -Wl,--end-group
+LDLIBS := -Wl,--start-group -lxil -lgcc -lc -lm -Wl,--end-group
 
 OBJECTS := \
   $(BUILD_DIR)/display_demo.o \
+  $(BUILD_DIR)/tiny_face_runtime.o \
   $(BUILD_DIR)/display_ctrl.o \
   $(BUILD_DIR)/dynclk.o \
   $(BUILD_DIR)/PS_i2c.o \
@@ -36,6 +37,9 @@ $(BUILD_DIR):
 	mkdir $(BUILD_DIR)
 
 $(BUILD_DIR)/display_demo.o: $(SRC_ROOT)/display_demo.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/tiny_face_runtime.o: $(SRC_ROOT)/tiny_face_runtime.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/display_ctrl.o: $(SRC_ROOT)/display_ctrl/display_ctrl.c | $(BUILD_DIR)

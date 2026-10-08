@@ -12,9 +12,39 @@ from training.export_weights import export_checkpoint
 from training.model import TinyFaceDetector, count_macs, non_max_suppression
 from training.train import detection_loss
 from training.widerface_dataset import WiderFaceGridDataset, parse_widerface_annotations
+from training.yolo_face_dataset import YoloFaceGridDataset
 
 
 class TrainingPipelineTest(unittest.TestCase):
+    def test_yolo_dataset_filter_and_target(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary_directory:
+            root = Path(temporary_directory)
+            images = root / "images"
+            labels = root / "labels"
+            images.mkdir()
+            labels.mkdir()
+            Image.new("RGB", (640, 480), (80, 100, 120)).save(images / "one.jpg")
+            Image.new("RGB", (640, 480)).save(images / "crowd.jpg")
+            (labels / "one.txt").write_text("0 0.5 0.5 0.25 0.5\n", encoding="utf-8")
+            (labels / "crowd.txt").write_text(
+                "0 0.2 0.2 0.1 0.1\n0 0.5 0.5 0.1 0.1\n0 0.8 0.8 0.1 0.1\n",
+                encoding="utf-8",
+            )
+            dataset = YoloFaceGridDataset(
+                images,
+                labels,
+                min_face_pixels=16,
+                min_faces_per_image=1,
+                max_faces_per_image=2,
+                require_all_faces_detectable=True,
+            )
+            self.assertEqual(len(dataset), 1)
+            image, target = dataset[0]
+            self.assertEqual(tuple(image.shape), (1, 120, 160))
+            self.assertEqual(float(target[0].sum()), 1.0)
+            self.assertAlmostEqual(float(target[3, 7, 10]), 0.25)
+            self.assertAlmostEqual(float(target[4, 7, 10]), 0.5)
+
     def test_non_max_suppression(self) -> None:
         boxes = [
             (0.1, 0.1, 0.5, 0.5, 0.9),
