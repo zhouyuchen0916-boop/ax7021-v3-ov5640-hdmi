@@ -32,6 +32,14 @@ training/outputs/
 training/field_dataset/images/
 training/field_dataset/field_annotations.txt
 training/field_dataset/field_rejected.txt
+training/field_dataset_v2/face_images/
+training/field_dataset_v2/background_images/
+training/field_dataset_v2/background_rejected/
+training/field_dataset_v2/face_annotations.txt
+training/field_dataset_v2/face_rejected.txt
+training/field_dataset_v2/background_annotations.txt
+training/field_dataset_v2/combined_annotations.txt
+training/field_dataset_v2/field_rejected.txt
 training/datasets/
 __pycache__/
 *.py[cod]

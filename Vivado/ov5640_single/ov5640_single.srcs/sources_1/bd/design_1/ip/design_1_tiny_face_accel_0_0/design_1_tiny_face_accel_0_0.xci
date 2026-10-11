@@ -4,7 +4,7 @@
     "xci_name": "design_1_tiny_face_accel_0_0",
     "cell_name": "tiny_face_accel_0",
     "component_reference": "xilinx.com:hls:tiny_face_accel:1.0",
-    "ip_revision": "2114819346",
+    "ip_revision": "2114824654",
     "gen_directory": "../../../../../../ov5640_single.gen/sources_1/bd/design_1/ip/design_1_tiny_face_accel_0_0",
     "parameters": {
       "component_parameters": {
@@ -80,7 +80,7 @@
       },
       "runtime_parameters": {
         "IPCONTEXT": [ { "value": "IP_Integrator" } ],
-        "IPREVISION": [ { "value": "2114819346" } ],
+        "IPREVISION": [ { "value": "2114824654" } ],
         "MANAGED": [ { "value": "TRUE" } ],
         "OUTPUTDIR": [ { "value": "../../../../../../ov5640_single.gen/sources_1/bd/design_1/ip/design_1_tiny_face_accel_0_0" } ],
         "SELECTEDSIMMODEL": [ { "value": "" } ],

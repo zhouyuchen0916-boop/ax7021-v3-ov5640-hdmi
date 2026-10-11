@@ -13,6 +13,7 @@ def main() -> None:
     parser.add_argument("--device", type=int, default=0, help="OpenCV/DirectShow device index")
     parser.add_argument("--count", type=int, default=80)
     parser.add_argument("--output", type=Path, default=Path("training/field_dataset/images"))
+    parser.add_argument("--prefix", choices=("face", "background"), default="face")
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -28,7 +29,10 @@ def main() -> None:
     saved = 0
     last_saved_at = 0.0
     window = "AX7021 HDMI field capture"
-    print("Live HDMI capture opened. SPACE=save, Q=finish. Do not wear hats, glasses, sunglasses, or masks.")
+    if args.prefix == "background":
+        print("Background capture opened. SPACE=save, Q=finish. Keep every person out of the frame.")
+    else:
+        print("Face capture opened. SPACE=save, Q=finish. Capture 1-3 clear, uncovered faces.")
     try:
         while saved < args.count:
             ok, frame = capture.read()
@@ -52,7 +56,7 @@ def main() -> None:
             if key == 32 and time.monotonic() - last_saved_at > 0.4:
                 saved += 1
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                path = args.output / f"field_{saved:03d}_{timestamp}.png"
+                path = args.output / f"{args.prefix}_{saved:03d}_{timestamp}.png"
                 if not cv2.imwrite(str(path), frame):
                     raise RuntimeError(f"failed to save {path}")
                 last_saved_at = time.monotonic()

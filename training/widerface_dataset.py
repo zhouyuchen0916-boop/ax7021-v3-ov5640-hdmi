@@ -107,6 +107,7 @@ class WiderFaceGridDataset(Dataset[tuple[Tensor, Tensor]]):
         require_detectable_face: bool = False,
         require_all_faces_detectable: bool = False,
         clean_full_faces_only: bool = False,
+        include_empty_images: bool = False,
     ) -> None:
         self.image_root = image_root
         samples = parse_widerface_annotations(annotation_file)
@@ -114,7 +115,11 @@ class WiderFaceGridDataset(Dataset[tuple[Tensor, Tensor]]):
             samples = [
                 sample
                 for sample in samples
-                if len(sample.annotations) >= min_faces_per_image
+                if (
+                    include_empty_images
+                    and not sample.annotations
+                )
+                or len(sample.annotations) >= min_faces_per_image
             ]
         if max_faces_per_image is not None:
             samples = [
@@ -126,15 +131,24 @@ class WiderFaceGridDataset(Dataset[tuple[Tensor, Tensor]]):
             samples = [
                 sample
                 for sample in samples
-                if sample.annotations
-                and all(
-                    annotation.is_clear_full_face
-                    for annotation in sample.annotations
+                if (
+                    include_empty_images
+                    and not sample.annotations
+                )
+                or (
+                    sample.annotations
+                    and all(
+                        annotation.is_clear_full_face
+                        for annotation in sample.annotations
+                    )
                 )
             ]
         if (require_detectable_face or require_all_faces_detectable) and min_face_pixels > 0.0:
             detectable_samples: list[WiderFaceSample] = []
             for sample in samples:
+                if include_empty_images and not sample.annotations:
+                    detectable_samples.append(sample)
+                    continue
                 with Image.open(image_root / sample.relative_path) as source:
                     source_width, source_height = source.size
                 detectable = [

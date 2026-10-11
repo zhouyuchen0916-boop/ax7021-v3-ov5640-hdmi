@@ -1,5 +1,9 @@
 #include "xil_printf.h"
 #include "vdma.h"
+#include <string.h>
+
+static XAxiVdma WriteVdma;
+static int WriteVdmaReady = 0;
 
 u32 vdma_version(XAxiVdma *Vdma) {
 	return XAxiVdma_GetVersion(Vdma);
@@ -110,12 +114,13 @@ int vdma_write_stop(XAxiVdma *Vdma) {
 }
 
 
-int vdma_write_init(short DeviceID,short HoriSizeInput,short VertSizeInput,short Stride,unsigned int FrameStoreStartAddr)
+int vdma_write_init(short DeviceID, short HoriSizeInput, short VertSizeInput,
+		short Stride, u8 *FrameStoreStartAddr[], u32 FrameStoreCount)
 {
-	XAxiVdma Vdma;
 	XAxiVdma_Config *Config;
 	XAxiVdma_DmaSetup WriteCfg;
 	int Status;
+	u32 i;
 
 
 	Config = XAxiVdma_LookupConfig(DeviceID);
@@ -124,14 +129,20 @@ int vdma_write_init(short DeviceID,short HoriSizeInput,short VertSizeInput,short
 		return XST_FAILURE;
 	}
 
-	Status = XAxiVdma_CfgInitialize(&Vdma, Config, Config->BaseAddress);
+	if (FrameStoreStartAddr == NULL || FrameStoreCount < 2U ||
+		FrameStoreCount != (u32)Config->MaxFrameStoreNum) {
+		xil_printf("Invalid camera frame-store count %d (hardware max %d)\r\n",
+			(int)FrameStoreCount, Config->MaxFrameStoreNum);
+		return XST_FAILURE;
+	}
+
+	Status = XAxiVdma_CfgInitialize(&WriteVdma, Config, Config->BaseAddress);
 	if (Status != XST_SUCCESS) {
 		xil_printf("XAxiVdma_CfgInitialize failure\r\n");
 		return XST_FAILURE;
 	}
 
-	
-
+	memset(&WriteCfg, 0, sizeof(WriteCfg));
 	WriteCfg.EnableCircularBuf = 1;
 	WriteCfg.EnableFrameCounter = 0;
 	WriteCfg.FixedFrameStoreAddr = 0;
@@ -145,29 +156,58 @@ int vdma_write_init(short DeviceID,short HoriSizeInput,short VertSizeInput,short
 	WriteCfg.HoriSizeInput = HoriSizeInput;
 	WriteCfg.Stride = Stride;
 
-	Status = XAxiVdma_DmaConfig(&Vdma, XAXIVDMA_WRITE, &WriteCfg);
+	Status = XAxiVdma_DmaConfig(&WriteVdma, XAXIVDMA_WRITE, &WriteCfg);
 	if (Status != XST_SUCCESS) {
 			xdbg_printf(XDBG_DEBUG_ERROR,
-				"Read channel config failed %d\r\n", Status);
+				"Write channel config failed %d\r\n", Status);
 
 			return XST_FAILURE;
 	}
 
 
-	WriteCfg.FrameStoreStartAddr[0] = FrameStoreStartAddr;
+	for (i = 0U; i < FrameStoreCount; ++i) {
+		WriteCfg.FrameStoreStartAddr[i] = (UINTPTR)FrameStoreStartAddr[i];
+	}
 
-	Status = XAxiVdma_DmaSetBufferAddr(&Vdma, XAXIVDMA_WRITE, WriteCfg.FrameStoreStartAddr);
+	Status = XAxiVdma_DmaSetBufferAddr(&WriteVdma, XAXIVDMA_WRITE,
+		WriteCfg.FrameStoreStartAddr);
 	if (Status != XST_SUCCESS) {
 			xdbg_printf(XDBG_DEBUG_ERROR,"Write channel set buffer address failed %d\r\n", Status);
 			return XST_FAILURE;
 	}
 
 
-	Status = vdma_write_start(&Vdma);
+	Status = vdma_write_start(&WriteVdma);
 	if (Status != XST_SUCCESS) {
 		   xil_printf("error starting VDMA..!");
 		   return Status;
 	}
+	WriteVdmaReady = 1;
 	return XST_SUCCESS;
 
+}
+
+u32 vdma_write_current_frame(void)
+{
+	if (!WriteVdmaReady) {
+		return 0xFFFFFFFFU;
+	}
+	return XAxiVdma_CurrFrameStore(&WriteVdma, XAXIVDMA_WRITE);
+}
+
+u32 vdma_write_errors(void)
+{
+	if (!WriteVdmaReady) {
+		return 0xFFFFFFFFU;
+	}
+	return (u32)XAxiVdma_GetDmaChannelErrors(&WriteVdma, XAXIVDMA_WRITE);
+}
+
+int vdma_write_clear_errors(u32 ErrorMask)
+{
+	if (!WriteVdmaReady) {
+		return XST_FAILURE;
+	}
+	return XAxiVdma_ClearDmaChannelErrors(&WriteVdma, XAXIVDMA_WRITE,
+		ErrorMask);
 }

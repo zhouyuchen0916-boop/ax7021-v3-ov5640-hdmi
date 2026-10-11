@@ -257,30 +257,35 @@ int DisplayStart(DisplayCtrl *dispPtr)
 	 * Perform the VDMA driver calls required to start a transfer. Note that no data is actually
 	 * transferred until the disp_ctrl core signals the VDMA core by pulsing fsync.
 	 */
-
 	Status = XAxiVdma_DmaConfig(dispPtr->vdma, XAXIVDMA_READ, &(dispPtr->vdmaConfig));
 	if (Status != XST_SUCCESS)
 	{
-		xdbg_printf(XDBG_DEBUG_GENERAL, "Read channel config failed %d\r\n", Status);
+		xil_printf("Read channel config failed %d\r\n", Status);
 		return XST_FAILURE;
 	}
 	Status = XAxiVdma_DmaSetBufferAddr(dispPtr->vdma, XAXIVDMA_READ, dispPtr->vdmaConfig.FrameStoreStartAddr);
 	if (Status != XST_SUCCESS)
 	{
-		xdbg_printf(XDBG_DEBUG_GENERAL, "Read channel set buffer address failed %d\r\n", Status);
+		xil_printf("Read channel set buffer address failed %d\r\n", Status);
 		return XST_FAILURE;
 	}
 	Status = XAxiVdma_DmaStart(dispPtr->vdma, XAXIVDMA_READ);
 	if (Status != XST_SUCCESS)
 	{
-		xdbg_printf(XDBG_DEBUG_GENERAL, "Start read transfer failed %d\r\n", Status);
+		xil_printf("Start read transfer failed %d\r\n", Status);
 		return XST_FAILURE;
 	}
-	Status = XAxiVdma_StartParking(dispPtr->vdma, dispPtr->curFrame, XAXIVDMA_READ);
-	if (Status != XST_SUCCESS)
+	/* In synchronized circular mode the camera VDMA is the GenLock master.
+	 * This display slave follows it one frame behind.  Parking would disable
+	 * that automatic frame selection. */
+	if (!dispPtr->vdmaConfig.EnableSync)
 	{
-		xdbg_printf(XDBG_DEBUG_GENERAL, "Unable to park the channel %d\r\n", Status);
-		return XST_FAILURE;
+		Status = XAxiVdma_StartParking(dispPtr->vdma, dispPtr->curFrame, XAXIVDMA_READ);
+		if (Status != XST_SUCCESS)
+		{
+			xdbg_printf(XDBG_DEBUG_GENERAL, "Unable to park the channel %d\r\n", Status);
+			return XST_FAILURE;
+		}
 	}
 
 	dispPtr->state = DISPLAY_RUNNING;
@@ -375,9 +380,9 @@ int DisplayInitialize(DisplayCtrl *dispPtr, XAxiVdma *vdma, u16 vtcId, u32 dynCl
 	/*
 	 * Initialize the VDMA Read configuration struct
 	 */
-	dispPtr->vdmaConfig.FrameDelay = 0;
+	dispPtr->vdmaConfig.FrameDelay = 1;
 	dispPtr->vdmaConfig.EnableCircularBuf = 1;
-	dispPtr->vdmaConfig.EnableSync = 0;
+	dispPtr->vdmaConfig.EnableSync = 1;
 	dispPtr->vdmaConfig.PointNum = 0;
 	dispPtr->vdmaConfig.EnableFrameCounter = 0;
 
@@ -409,7 +414,7 @@ int DisplaySetMode(DisplayCtrl *dispPtr, const VideoMode *newMode)
 	/*
 	 * If currently running, stop
 	 */
-	if (dispPtr->state == DISPLAY_RUNNING)
+	if (dispPtr->state == DISPLAY_RUNNING && !dispPtr->vdmaConfig.EnableSync)
 	{
 		Status = DisplayStop(dispPtr);
 		if (Status != XST_SUCCESS)

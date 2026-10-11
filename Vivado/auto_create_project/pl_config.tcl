@@ -118,10 +118,10 @@
     CONFIG.c_include_mm2s_dre {1} \
     CONFIG.c_include_s2mm {0} \
     CONFIG.c_m_axis_mm2s_tdata_width {24} \
-    CONFIG.c_mm2s_genlock_mode {0} \
+    CONFIG.c_mm2s_genlock_mode {1} \
     CONFIG.c_mm2s_linebuffer_depth {512} \
     CONFIG.c_mm2s_max_burst_length {128} \
-    CONFIG.c_num_fstores {1} \
+    CONFIG.c_num_fstores {3} \
   ] $axi_vdma_0
 
 
@@ -131,7 +131,7 @@
     CONFIG.c_include_mm2s {0} \
     CONFIG.c_include_s2mm_dre {1} \
     CONFIG.c_m_axi_s2mm_data_width {64} \
-    CONFIG.c_num_fstores {1} \
+    CONFIG.c_num_fstores {3} \
     CONFIG.c_s2mm_genlock_mode {0} \
     CONFIG.c_s2mm_linebuffer_depth {4096} \
     CONFIG.c_s2mm_max_burst_length {128} \
@@ -224,6 +224,7 @@ set axis_subset_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_s
 
   # Create port connections
   connect_bd_net -net axi_dynclk_0_PXL_CLK_O [get_bd_pins axi_dynclk_0/PXL_CLK_O] [get_bd_ports hdmi_out_clk] [get_bd_pins v_axi4s_vid_out_0/vid_io_out_clk] [get_bd_pins v_tc_0/clk]
+  connect_bd_net -net camera_frame_pointer [get_bd_pins axi_vdma_1/s2mm_frame_ptr_out] [get_bd_pins axi_vdma_0/mm2s_frame_ptr_in]
   connect_bd_net -net axi_vdma_0_mm2s_introut [get_bd_pins axi_vdma_0/mm2s_introut] [get_bd_pins xlconcat_0/In0]
   connect_bd_net -net cmos_d_1 [get_bd_ports cmos1_d] [get_bd_pins alinx_ov5640_0/cmos_d]
   connect_bd_net -net cmos_href_1 [get_bd_ports cmos1_href] [get_bd_pins alinx_ov5640_0/cmos_href]

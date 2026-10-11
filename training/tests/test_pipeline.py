@@ -242,6 +242,35 @@ class TrainingPipelineTest(unittest.TestCase):
             self.assertEqual(len(dataset), 1)
             self.assertEqual(dataset.samples[0].relative_path, "large.jpg")
 
+    def test_include_empty_images_keeps_hard_negatives(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary_directory:
+            root = Path(temporary_directory)
+            image_root = root / "images"
+            image_root.mkdir()
+            Image.new("RGB", (320, 240)).save(image_root / "negative.jpg")
+            Image.new("RGB", (320, 240)).save(image_root / "positive.jpg")
+            annotation = root / "annotations.txt"
+            annotation.write_text(
+                "negative.jpg\n0\n"
+                "positive.jpg\n1\n40 30 80 80 0 0 0 0 0 0\n",
+                encoding="utf-8",
+            )
+            dataset = WiderFaceGridDataset(
+                image_root,
+                annotation,
+                min_face_pixels=16.0,
+                min_faces_per_image=1,
+                require_detectable_face=True,
+                clean_full_faces_only=True,
+                include_empty_images=True,
+            )
+            self.assertEqual(
+                [sample.relative_path for sample in dataset.samples],
+                ["negative.jpg", "positive.jpg"],
+            )
+            _, negative_target = dataset[0]
+            self.assertEqual(float(negative_target[0].sum()), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

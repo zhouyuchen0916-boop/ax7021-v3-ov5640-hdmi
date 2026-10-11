@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as functional
 from torch import Tensor
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset
 
 from .model import TinyFaceDetector, count_macs
 from .widerface_dataset import WiderFaceGridDataset
@@ -97,6 +97,15 @@ def main() -> None:
     parser.add_argument("--dataset-format", choices=("wider", "yolo"), default="wider")
     parser.add_argument("--validation-images", type=Path)
     parser.add_argument("--validation-annotations", type=Path)
+    parser.add_argument(
+        "--extra-wider",
+        nargs=2,
+        action="append",
+        type=Path,
+        metavar=("IMAGE_ROOT", "ANNOTATIONS"),
+        default=[],
+        help="Append a WIDER-format training set; may be supplied more than once.",
+    )
     parser.add_argument("--output", type=Path, default=Path("training/outputs/tiny_face.pt"))
     parser.add_argument(
         "--resume",
@@ -119,6 +128,11 @@ def main() -> None:
     parser.add_argument("--max-faces-per-image", type=int, default=3)
     parser.add_argument("--clean-full-faces-only", action="store_true")
     parser.add_argument("--require-all-faces-detectable", action="store_true")
+    parser.add_argument(
+        "--include-empty-images",
+        action="store_true",
+        help="Keep zero-face images as hard negatives (WIDER format only).",
+    )
     parser.add_argument("--positive-weight", type=float, default=128.0)
     args = parser.parse_args()
 
@@ -137,29 +151,58 @@ def main() -> None:
         "max_faces_per_image": args.max_faces_per_image,
         "require_all_faces_detectable": args.require_all_faces_detectable,
     }
+    primary_options = dict(common_options)
     if args.dataset_format == "wider":
-        common_options.update(
+        primary_options.update(
             {
                 "require_detectable_face": True,
                 "clean_full_faces_only": args.clean_full_faces_only,
+                "include_empty_images": args.include_empty_images,
             }
         )
-    training_dataset = dataset_class(args.images, args.annotations, augment=True, **common_options)
+    training_datasets: list[Dataset[tuple[Tensor, Tensor]]] = [
+        dataset_class(args.images, args.annotations, augment=True, **primary_options)
+    ]
+    wider_options = {
+        **common_options,
+        "require_detectable_face": True,
+        "clean_full_faces_only": args.clean_full_faces_only,
+        "include_empty_images": args.include_empty_images,
+    }
+    training_datasets.extend(
+        WiderFaceGridDataset(image_root, annotations, augment=True, **wider_options)
+        for image_root, annotations in args.extra_wider
+    )
+    training_dataset: Dataset[tuple[Tensor, Tensor]]
+    training_dataset = (
+        training_datasets[0]
+        if len(training_datasets) == 1
+        else ConcatDataset(training_datasets)
+    )
 
     if args.validation_images is not None:
         validation_dataset = dataset_class(
             args.validation_images,
             args.validation_annotations,
             augment=False,
-            **common_options,
+            **primary_options,
         )
         training_source = training_dataset
         validation_source = validation_dataset
         training_count = len(training_dataset)
         validation_count = len(validation_dataset)
     else:
-        validation_dataset = dataset_class(
-            args.images, args.annotations, augment=False, **common_options
+        validation_datasets: list[Dataset[tuple[Tensor, Tensor]]] = [
+            dataset_class(args.images, args.annotations, augment=False, **primary_options)
+        ]
+        validation_datasets.extend(
+            WiderFaceGridDataset(image_root, annotations, augment=False, **wider_options)
+            for image_root, annotations in args.extra_wider
+        )
+        validation_dataset = (
+            validation_datasets[0]
+            if len(validation_datasets) == 1
+            else ConcatDataset(validation_datasets)
         )
         indices = list(range(len(training_dataset)))
         random.Random(args.seed).shuffle(indices)
