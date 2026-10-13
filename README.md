@@ -14,7 +14,7 @@
 
 视频软件配置源文件采用 1280×720、RGB888。当前只接入 AN5642 的一个摄像头通道；尚未规定它在双目模组上对应左镜头还是右镜头，接板后以实际画面确认。
 
-当前 PL 端加入了 AXI4-Stream 矩形框叠加模块。程序启动时先写入绿色测试框 `(320,180)–(960,540)`，进入推理循环后由检测结果更新坐标；没有检测到人脸或推理出错时关闭框。现有叠加器只有一组坐标寄存器，因此画面仅显示置信度最高的一张脸。
+当前 PL 端加入了 AXI4-Stream 多目标框和字符叠加模块，最多同时显示 3 张人脸。PS 将检测候选按置信度排序并执行 IoU 0.35 的 NMS，再用 3 个独立跟踪器分别稳定各张人脸的位置；没有检测到人脸或推理出错时关闭相应框。每个绿框旁显示 `PEOPLE x.xM`，距离由人脸框高度按 `距离(分米)≈2100/框高(像素)` 估算，并限制在 0.3–9.9 m。该距离只用于现场演示，摄像头焦距、人员头部大小和姿态都会造成误差；可在已知距离站位后调整 `display_demo.c` 中的 `FACE_DISTANCE_SCALE_DM_PIXELS` 做单点标定。
 
 ## 关键文件
 
@@ -106,7 +106,7 @@ AX7021 OV5640 HDMI demo start
 PS I2C ready at 40 kHz
 OV5640 chip ID: 0x5640
 OV5640 configured for 1280x720 RGB output
-BBOX overlay: waiting for stable face detection
+BBOX overlay: 3 faces, PEOPLE distance labels enabled
 VDMA startup errors: 0x810 (clearing latched frame status)
 VDMA errors after clear: 0x0
 FRAME_SYNC_READY: seen=0x7 current=f0 errors=0x0
@@ -114,29 +114,30 @@ VIDEO RUNNING: camera -> 3-frame GenLock DDR -> HDMI, 1280x720
 FRAME_SYNC: writing=f1, inference=f0
 FRAME_SYNC: writing=f0, inference=f2
 FRAME_SYNC: writing=f2, inference=f1
-FACE_STABLE[f2]: (275,52)-(686,381), score=931/1000
+FACE0[f2]: (275,52)-(686,381), score=931/1000 distance=0.6m
+FACE1[f2]: (810,96)-(1088,408), score=947/1000 distance=0.7m
 ```
 
 只有看到 `OV5640 chip ID: 0x5640`，才能确认摄像头的供电、复位和 SCCB/I²C 通信已建立；只有显示器出现稳定画面，才能确认完整的摄像头到 HDMI 通路跑通。
 
 ## 最终构建验证
 
-构建日期：2026-10-11。
+构建日期：2026-10-12。
 
 - 实现和比特流生成：成功，0 Error
 - 框叠加 RTL 自检仿真：通过，输出 `BBOX_SIM_PASS`
 - HLS C 仿真：1500 个输出全部匹配，最大误差 0
 - HLS 综合：估算延迟 4247755 周期，100 MHz 下约 42.48 ms
-- 时序：WNS `+0.408 ns`，TNS `0 ns`，WHS `+0.011 ns`，THS `0 ns`
+- 时序：WNS `+0.407 ns`，TNS `0 ns`，WHS `+0.030 ns`，THS `0 ns`
 - 布线：0 条失败网络，0 条未布线网络
 - CDC：摄像头像素数据由 XPM 异步 FIFO 跨域；报告中的 1 条 `CDC-6` 位于 VTC，2 条 `CDC-15` 位于 AXI Clock Converter 内部
-- 资源：13060 LUT、18726 FF、57 RAMB36、12 RAMB18、39 DSP
-- BIT SHA-256：`E9089DE258CFF439683ADDFDBC93B863AEA4104BCD6A9498C58A3832959C59B4`
-- XSA SHA-256：`87443425119674AA8BE0BE25AA05BDC87662BBB1A9A4520EFE0A95105770B02A`
+- 资源：14106 LUT、19898 FF、57 RAMB36、12 RAMB18、39 DSP
+- BIT SHA-256：`C55B6CF1149CB2DB7559A45F339ED11AF100A49353B54A0201EBBE2BF16169C3`
+- XSA SHA-256：`72970C56F92C3B80B8D7834D51AF5C767B48EA8B80CC845BAD45F20FF1EE09D7`
 - Vitis standalone BSP：成功构建，stdin/stdout 均为 `ps7_uart_1`
 - 裸机应用：成功构建，0 编译错误、0 编译警告；ELF32 ARM hard-float，入口地址 `0x00100000`
-- ELF 代码/数据/BSS 统计：62080 B / 2676 B / 8496064 B；三帧缓存位于 `.noinit`
-- ELF SHA-256：`14BB0B25FB7F6C9296051E780623ECBCFADE041597E16F7F99E3D9E4EE08433A`
+- ELF 代码/数据/BSS 统计：64896 B / 2676 B / 8479680 B；三帧缓存位于 `.noinit`
+- ELF SHA-256：`7F1E072B2DEC87E824C1C10C5574FF92D507E6144A0C677044710056DD131F89`
 - 实采帧预处理对比：旧单点等权灰度与训练输入 MAE 为 `0.021849`；BGR BT.601 加权灰度加 8×6 块均值后为 `0.002575`
 - 2026-10-11 实板帧同步验证：摄像头桥稳定等待结束后清除一次启动期 `0x810` 锁存，随后三帧自检为 `seen=0x7`、`errors=0x0`；推理循环按真实帧边界依次出现 `writing=f1/f0/f2`，始终读取刚完成的上一帧。连续四次同一人脸检测框约为 `(274–277,49–52)-(683–686,381–384)`，置信度为 `0.931–0.938`。
 
@@ -166,3 +167,5 @@ README.md               构建、接线、验证边界和运行说明
 - 2026-10-11 三帧 GenLock、新预处理和帧边界同步版本已通过实板串口验证。S2MM 使用标准 GenLock 主端，MM2S 使用延迟一帧的标准从端；启动时等待摄像头桥内部复位/FIFO 延时完成，再清除一次首帧锁存并要求三帧自检 `seen=0x7`。推理前等待当前写帧切换，随后读取刚完成的上一帧，串口已验证 `f0/f1/f2` 持续轮转且检测框坐标稳定。最终画面观感仍以 HDMI 采集卡上的 OBS 实时显示为准。
 - 2026-10-11 检测框时序滤波版本已通过 JTAG 下载。启动阶段不再显示固定测试框；候选框需要连续 4 次、相邻 IoU 不低于 0.45、平均置信度不低于 0.93 才显示。已显示的框采用 3:1 坐标低通滤波，并允许短暂丢失 5 次，以减少框的闪烁和尺寸跳变。JTAG 连续读取 30 组框控制寄存器期间使能位保持稳定。当前 FDDB 验证集在 IoU 0.5 下最佳 F1 约为 0.51，若现场仍有稳定误检或框尺寸系统性偏差，需要增加同一摄像头采集的无人负样本及人脸框标注后重新训练，而不是继续依赖后处理掩盖模型误差。
 - 2026-10-11 现场数据增强版本已完成训练、INT8 标定、HLS C 仿真、综合实现和 JTAG 下载。现场集包含 120 张人脸图（148 个框）和 74 张无人背景图；最终模型对背景图的离线误检由旧模型的 5/74 降至 1/74（阈值 0.94），FDDB 验证集 IoU 0.5 下最佳 F1 为 0.626。HLS C 仿真 1500 个输出全部匹配。下载后串口持续输出三缓冲轮转的 `FACE[f0/f1/f2]: none`，已确认无脸场景下主循环和推理持续运行；现场有脸画面的框位置与稳定性仍以 HDMI 采集卡上的 OBS 实时观察为准。
+- 2026-10-12 多人框和距离标注版本已完成行为仿真、Vitis 编译、Vivado 综合实现与比特流生成。检测器最多输出 3 个经 NMS 筛选的候选框，3 个独立跟踪器分别驱动 3 组 AXI GPIO；叠加器采用三级 AXI4-Stream 流水线绘制绿框和 `PEOPLE x.xM` 字符。行为仿真输出 `BBOX_SIM_PASS`，最终 WNS 为 `+0.407 ns`。距离是按框高估算的演示值，仍需在实板已知距离处校准；多人框数量、位置和标签显示仍以本版本下载后 OBS 实时画面为准。
+- 2026-10-13 多人框和距离标注版本已通过 JTAG 下载到实板。串口确认 `OV5640 chip ID: 0x5640`、三帧自检 `seen=0x7`、清除启动锁存后 VDMA 错误为 `0x0`，并输出 `BBOX overlay: 3 faces, PEOPLE distance labels enabled`。持续运行时同一帧同时输出 `FACE0` 和 `FACE1`，两个候选均包含坐标、置信度和距离值，证明多目标解码、跟踪及距离计算已在实板运行。绿框和字符的最终位置、清晰度及遮挡关系以 HDMI 采集卡上的 OBS 画面确认。

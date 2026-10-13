@@ -9,12 +9,16 @@
     "parameters": {
       "component_parameters": {
         "BOX_COLOR": [ { "value": "0x00FF00", "resolve_type": "user", "format": "bitString", "usage": "all" } ],
+        "LABEL_BACKGROUND": [ { "value": "0x000000", "resolve_type": "user", "format": "bitString", "usage": "all" } ],
         "BOX_THICKNESS": [ { "value": "4", "resolve_type": "user", "format": "long", "usage": "all" } ],
+        "FRAME_WIDTH": [ { "value": "1280", "resolve_type": "user", "format": "long", "usage": "all" } ],
         "Component_Name": [ { "value": "design_1_bbox_overlay_0_0", "resolve_type": "user", "usage": "all" } ]
       },
       "model_parameters": {
         "BOX_COLOR": [ { "value": "0x00FF00", "resolve_type": "generated", "format": "bitString", "usage": "all" } ],
-        "BOX_THICKNESS": [ { "value": "4", "resolve_type": "generated", "format": "long", "usage": "all" } ]
+        "LABEL_BACKGROUND": [ { "value": "0x000000", "resolve_type": "generated", "format": "bitString", "usage": "all" } ],
+        "BOX_THICKNESS": [ { "value": "4", "resolve_type": "generated", "format": "long", "usage": "all" } ],
+        "FRAME_WIDTH": [ { "value": "1280", "resolve_type": "generated", "format": "long", "usage": "all" } ]
       },
       "project_parameters": {
         "ARCHITECTURE": [ { "value": "zynq" } ],
@@ -44,8 +48,12 @@
       "ports": {
         "aclk": [ { "direction": "in" } ],
         "aresetn": [ { "direction": "in" } ],
-        "cfg_x": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
-        "cfg_y": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
+        "cfg_x0": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
+        "cfg_y0": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
+        "cfg_x1": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
+        "cfg_y1": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
+        "cfg_x2": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
+        "cfg_y2": [ { "direction": "in", "size_left": "31", "size_right": "0" } ],
         "s_axis_video_tdata": [ { "direction": "in", "size_left": "23", "size_right": "0", "driver_value": "0" } ],
         "s_axis_video_tkeep": [ { "direction": "in", "size_left": "2", "size_right": "0", "driver_value": "1" } ],
         "s_axis_video_tlast": [ { "direction": "in", "driver_value": "0" } ],

@@ -12,10 +12,10 @@ typedef struct {
 	float score;
 } TinyFaceBox;
 
-/* Return 1 when the generated XSA contains tiny_face_accel_0 and a box was
- * decoded, 0 when no face is above the threshold, and a negative value when
- * the application was built against the old HDMI-only XSA. */
+/* Return the number of decoded faces, 0 when no face is above the threshold,
+ * and a negative value on an accelerator/runtime error. Detections are sorted
+ * by confidence and filtered with NMS before they are returned. */
 int tiny_face_infer(const u8 *frame, u32 width, u32 height, u32 stride,
-			   TinyFaceBox *box);
+			   TinyFaceBox *boxes, u32 max_boxes);
 
 #endif /* TINY_FACE_RUNTIME_H_ */

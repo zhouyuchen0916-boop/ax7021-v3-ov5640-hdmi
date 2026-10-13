@@ -17,6 +17,7 @@
 #include <string.h>
 #include "xil_types.h"
 #include "xil_cache.h"
+#include "xil_io.h"
 #include "xparameters.h"
 #include "xiicps.h"
 #include "vdma.h"
@@ -42,6 +43,19 @@
 #define BBOX_ENABLE_MASK 0x80000000U
 #define BBOX_PACK(minimum, maximum) \
 	((((u32)(maximum) & 0x0FFFU) << 16) | ((u32)(minimum) & 0x0FFFU))
+#define BBOX_PACK_Y(minimum, maximum, distance_dm) \
+	(BBOX_PACK((minimum), (maximum)) | \
+	 ((((u32)(distance_dm) % 10U) & 0x0FU) << 12) | \
+	 (((((u32)(distance_dm) / 10U)) & 0x0FU) << 28))
+#define BBOX_CTRL0_BASEADDR 0x41220000U
+#define BBOX_CTRL1_BASEADDR 0x41230000U
+#define BBOX_CTRL2_BASEADDR 0x41240000U
+#define AXI_GPIO_DATA_OFFSET 0x00U
+#define AXI_GPIO_TRI_OFFSET 0x04U
+#define AXI_GPIO2_DATA_OFFSET 0x08U
+#define AXI_GPIO2_TRI_OFFSET 0x0CU
+#define MAX_FACE_BOXES 3U
+#define FACE_DISTANCE_SCALE_DM_PIXELS 2100U
 #define FACE_CONFIRM_FRAMES 4U
 #define FACE_CONFIRM_IOU_PERMILLE 450U
 #define FACE_TRACK_IOU_PERMILLE 200U
@@ -70,7 +84,6 @@ XAxiVdma vdma;
 XIicPs ps_i2c0;
 XGpio hdmi_rstn;
 XGpio cmos_rstn;
-XGpio bbox_ctrl;
 volatile u32 g_diag_magic = 0xA7021D1AU;
 volatile u32 g_diag_stage = 0U;
 volatile s32 g_diag_status = 0;
@@ -221,16 +234,139 @@ static int face_tracker_update(FaceTracker *tracker,
 	return 0;
 }
 
-static void bbox_write(const TinyFaceBox *box)
+static u32 face_distance_dm(const TinyFaceBox *box)
 {
-	if (box != NULL && box->valid) {
-		XGpio_DiscreteWrite(&bbox_ctrl, 1,
-			BBOX_ENABLE_MASK | BBOX_PACK(box->x_min, box->x_max));
-		XGpio_DiscreteWrite(&bbox_ctrl, 2,
-			BBOX_PACK(box->y_min, box->y_max));
-	} else {
-		XGpio_DiscreteWrite(&bbox_ctrl, 1, 0U);
-		XGpio_DiscreteWrite(&bbox_ctrl, 2, 0U);
+	u32 box_height;
+	u32 distance_dm;
+
+	if (!face_box_geometry_valid(box)) {
+		return 0U;
+	}
+	box_height = box->y_max - box->y_min;
+	/* Approximate pinhole-camera distance.  The 2100 dm*pixel constant is a
+	 * practical starting point for the AN5642 3.6 mm lens at 1280x720 and can
+	 * be calibrated later with one measured reference distance. */
+	distance_dm = (FACE_DISTANCE_SCALE_DM_PIXELS + box_height / 2U) /
+		box_height;
+	if (distance_dm < 3U) distance_dm = 3U;
+	if (distance_dm > 99U) distance_dm = 99U;
+	return distance_dm;
+}
+
+static u32 bbox_ctrl_base(u32 slot)
+{
+	static const u32 bases[MAX_FACE_BOXES] = {
+		BBOX_CTRL0_BASEADDR, BBOX_CTRL1_BASEADDR, BBOX_CTRL2_BASEADDR
+	};
+	return bases[slot < MAX_FACE_BOXES ? slot : 0U];
+}
+
+static void bbox_ctrl_initialize(void)
+{
+	u32 slot;
+	for (slot = 0U; slot < MAX_FACE_BOXES; ++slot) {
+		u32 base = bbox_ctrl_base(slot);
+		Xil_Out32(base + AXI_GPIO_TRI_OFFSET, 0U);
+		Xil_Out32(base + AXI_GPIO2_TRI_OFFSET, 0U);
+		Xil_Out32(base + AXI_GPIO_DATA_OFFSET, 0U);
+		Xil_Out32(base + AXI_GPIO2_DATA_OFFSET, 0U);
+	}
+}
+
+static void bbox_write_all(const FaceTracker trackers[MAX_FACE_BOXES])
+{
+	u32 slot;
+
+	/* Disable every slot before changing coordinates so the video-clock
+	 * domain can only latch either the previous complete set or the new one. */
+	for (slot = 0U; slot < MAX_FACE_BOXES; ++slot) {
+		Xil_Out32(bbox_ctrl_base(slot) + AXI_GPIO_DATA_OFFSET, 0U);
+	}
+	for (slot = 0U; slot < MAX_FACE_BOXES; ++slot) {
+		const TinyFaceBox *box = &trackers[slot].displayed;
+		u32 base = bbox_ctrl_base(slot);
+		if (trackers[slot].visible && face_box_geometry_valid(box)) {
+			u32 distance_dm = face_distance_dm(box);
+			Xil_Out32(base + AXI_GPIO2_DATA_OFFSET,
+				BBOX_PACK_Y(box->y_min, box->y_max, distance_dm));
+			Xil_Out32(base + AXI_GPIO_DATA_OFFSET,
+				BBOX_ENABLE_MASK | BBOX_PACK(box->x_min, box->x_max));
+		} else {
+			Xil_Out32(base + AXI_GPIO2_DATA_OFFSET, 0U);
+		}
+	}
+}
+
+static void face_trackers_update(FaceTracker trackers[MAX_FACE_BOXES],
+	const TinyFaceBox detections[MAX_FACE_BOXES], u32 detection_count)
+{
+	int assignment[MAX_FACE_BOXES] = {-1, -1, -1};
+	int used[MAX_FACE_BOXES] = {0, 0, 0};
+	u32 tracker_index;
+	u32 detection_index;
+
+	/* Keep an already-visible face attached to the closest overlapping
+	 * detection even when confidence ordering changes between two people. */
+	for (tracker_index = 0U; tracker_index < MAX_FACE_BOXES; ++tracker_index) {
+		u32 best_iou = FACE_TRACK_IOU_PERMILLE;
+		if (!trackers[tracker_index].visible) continue;
+		for (detection_index = 0U; detection_index < detection_count;
+			++detection_index) {
+			u32 iou;
+			if (used[detection_index] ||
+				!face_box_geometry_valid(&detections[detection_index])) continue;
+			iou = face_box_iou_permille(&trackers[tracker_index].displayed,
+				&detections[detection_index]);
+			if (iou >= best_iou) {
+				best_iou = iou;
+				assignment[tracker_index] = (int)detection_index;
+			}
+		}
+		if (assignment[tracker_index] >= 0)
+			used[assignment[tracker_index]] = 1;
+	}
+
+	/* Continue pending confirmations before opening a new tracker slot. */
+	for (tracker_index = 0U; tracker_index < MAX_FACE_BOXES; ++tracker_index) {
+		u32 best_iou = FACE_CONFIRM_IOU_PERMILLE;
+		if (trackers[tracker_index].visible ||
+			trackers[tracker_index].pending_count == 0U) continue;
+		for (detection_index = 0U; detection_index < detection_count;
+			++detection_index) {
+			u32 iou;
+			if (used[detection_index] ||
+				!face_box_geometry_valid(&detections[detection_index])) continue;
+			iou = face_box_iou_permille(&trackers[tracker_index].pending,
+				&detections[detection_index]);
+			if (iou >= best_iou) {
+				best_iou = iou;
+				assignment[tracker_index] = (int)detection_index;
+			}
+		}
+		if (assignment[tracker_index] >= 0)
+			used[assignment[tracker_index]] = 1;
+	}
+
+	for (detection_index = 0U; detection_index < detection_count;
+		++detection_index) {
+		if (used[detection_index] ||
+			!face_box_geometry_valid(&detections[detection_index])) continue;
+		for (tracker_index = 0U; tracker_index < MAX_FACE_BOXES;
+			++tracker_index) {
+			if (!trackers[tracker_index].visible &&
+				trackers[tracker_index].pending_count == 0U &&
+				assignment[tracker_index] < 0) {
+				assignment[tracker_index] = (int)detection_index;
+				used[detection_index] = 1;
+				break;
+			}
+		}
+	}
+
+	for (tracker_index = 0U; tracker_index < MAX_FACE_BOXES; ++tracker_index) {
+		const TinyFaceBox *candidate = assignment[tracker_index] >= 0 ?
+			&detections[assignment[tracker_index]] : NULL;
+		(void)face_tracker_update(&trackers[tracker_index], candidate);
 	}
 }
 
@@ -338,22 +474,12 @@ int main(void)
 	}
 	XGpio_SetDataDirection(&cmos_rstn, 1, 0x0);            //set GPIO as output
 
-	Status = XGpio_Initialize(&bbox_ctrl, XPAR_BBOX_CTRL_DEVICE_ID);
-	if (Status != XST_SUCCESS) {
-		g_diag_status = Status;
-		g_diag_stage = 0xE00EU;
-		diag_flush();
-		xil_printf("ERROR: bounding-box GPIO initialization failed (%d)\r\n", Status);
-		return XST_FAILURE;
-	}
-	XGpio_SetDataDirection(&bbox_ctrl, 1, 0x00000000U);
-	XGpio_SetDataDirection(&bbox_ctrl, 2, 0x00000000U);
 	/* Keep the overlay disabled until a face is confirmed across several
 	 * consecutive frames.  The old fixed test box caused a false green box
 	 * throughout the camera/VDMA startup delay. */
-	bbox_write(NULL);
+	bbox_ctrl_initialize();
 	g_diag_stage = 0x50U;
-	xil_printf("BBOX overlay: waiting for stable face detection\r\n");
+	xil_printf("BBOX overlay: 3 faces, PEOPLE distance labels enabled\r\n");
 
 	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x1);
 	usleep(500000);
@@ -501,10 +627,10 @@ int main(void)
 	xil_printf("VIDEO RUNNING: camera -> 3-frame GenLock DDR -> HDMI, 1280x720\r\n");
 	u32 detector_iterations = 0U;
 	int detector_error_reported = 0;
-	FaceTracker face_tracker;
-	memset(&face_tracker, 0, sizeof(face_tracker));
+	FaceTracker face_trackers[MAX_FACE_BOXES];
+	memset(face_trackers, 0, sizeof(face_trackers));
 	while (1) {
-		TinyFaceBox detected_box;
+		TinyFaceBox detected_boxes[MAX_FACE_BOXES];
 		u32 writing_frame;
 		u32 completed_frame;
 		int detector_status;
@@ -524,33 +650,34 @@ int main(void)
 				writing_frame, completed_frame);
 		}
 		detector_status = tiny_face_infer(dispCtrl.framePtr[completed_frame],
-				1280U, 720U, DEMO_STRIDE, &detected_box);
+				1280U, 720U, DEMO_STRIDE, detected_boxes, MAX_FACE_BOXES);
 		++detector_iterations;
 		if (detector_status >= 0) {
-			const TinyFaceBox *candidate =
-				(detector_status > 0 && detected_box.valid) ? &detected_box : NULL;
-			int show_box = face_tracker_update(&face_tracker, candidate);
-
-			bbox_write(show_box ? &face_tracker.displayed : NULL);
+			u32 slot;
+			u32 visible_count = 0U;
+			face_trackers_update(face_trackers, detected_boxes,
+				(u32)detector_status);
+			bbox_write_all(face_trackers);
 			if ((detector_iterations % 20U) == 0U) {
-				if (show_box) {
-					xil_printf("FACE_STABLE[f%d]: (%d,%d)-(%d,%d), score=%d/1000\r\n",
-						completed_frame,
-						face_tracker.displayed.x_min,
-						face_tracker.displayed.y_min,
-						face_tracker.displayed.x_max,
-						face_tracker.displayed.y_max,
-						face_score_permille(face_tracker.displayed.score));
-				} else if (candidate != NULL) {
-					xil_printf("FACE_PENDING[f%d]: score=%d/1000 confirm=%d/%d\r\n",
-						completed_frame, face_score_permille(candidate->score),
-						face_tracker.pending_count, FACE_CONFIRM_FRAMES);
-				} else {
+				for (slot = 0U; slot < MAX_FACE_BOXES; ++slot) {
+					if (face_trackers[slot].visible) {
+						const TinyFaceBox *box = &face_trackers[slot].displayed;
+						++visible_count;
+						xil_printf("FACE%d[f%d]: (%d,%d)-(%d,%d) score=%d/1000 distance=%d.%dm\r\n",
+							slot, completed_frame, box->x_min, box->y_min,
+							box->x_max, box->y_max,
+							face_score_permille(box->score),
+							face_distance_dm(box) / 10U,
+							face_distance_dm(box) % 10U);
+					}
+				}
+				if (visible_count == 0U) {
 					xil_printf("FACE[f%d]: none\r\n", completed_frame);
 				}
 			}
 		} else {
-			bbox_write(NULL);
+			memset(face_trackers, 0, sizeof(face_trackers));
+			bbox_write_all(face_trackers);
 			if (!detector_error_reported) {
 				xil_printf("ERROR: tiny_face inference failed (%d)\r\n",
 					detector_status);
