@@ -18,6 +18,7 @@ LDLIBS := -Wl,--start-group -lxil -lgcc -lc -lm -Wl,--end-group
 
 OBJECTS := \
   $(BUILD_DIR)/display_demo.o \
+  $(BUILD_DIR)/stereo_runtime.o \
   $(BUILD_DIR)/tiny_face_runtime.o \
   $(BUILD_DIR)/display_ctrl.o \
   $(BUILD_DIR)/dynclk.o \
@@ -40,6 +41,9 @@ $(BUILD_DIR)/display_demo.o: $(SRC_ROOT)/display_demo.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/tiny_face_runtime.o: $(SRC_ROOT)/tiny_face_runtime.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/stereo_runtime.o: $(SRC_ROOT)/stereo_runtime.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/display_ctrl.o: $(SRC_ROOT)/display_ctrl/display_ctrl.c | $(BUILD_DIR)

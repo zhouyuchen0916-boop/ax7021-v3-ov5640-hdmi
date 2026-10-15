@@ -8,3 +8,7 @@
 set_false_path \
     -from [get_pins -hier -regexp {.*alinx_ov5640_0/inst/fifo_ready_reg/C}] \
     -to   [get_pins -hier -regexp {.*alinx_ov5640_0/inst/fifo_ready_sync_reg\[0\]/D}]
+
+set_false_path \
+    -from [get_pins -hier -regexp {.*alinx_ov5640_1/inst/fifo_ready_reg/C}] \
+    -to   [get_pins -hier -regexp {.*alinx_ov5640_1/inst/fifo_ready_sync_reg\[0\]/D}]

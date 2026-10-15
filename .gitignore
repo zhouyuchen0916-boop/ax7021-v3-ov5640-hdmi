@@ -28,6 +28,12 @@ Vitis/manual_build/*.map
 Vitis/manual_build/*.su
 Vitis/tmp/
 Vitis/captures/
+tmp/
+stereo/pairs/raw/
+stereo/pairs/left/*.png
+stereo/pairs/right/*.png
+stereo/pairs/rejected/
+stereo/output/
 training/outputs/
 training/field_dataset/images/
 training/field_dataset/field_annotations.txt

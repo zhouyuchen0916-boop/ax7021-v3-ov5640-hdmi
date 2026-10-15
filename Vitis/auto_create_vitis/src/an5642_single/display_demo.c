@@ -29,11 +29,16 @@
 #include "xuartps_hw.h"
 #include "xtime_l.h"
 #include "tiny_face_runtime.h"
+#include "stereo_runtime.h"
 /*
  * XPAR redefines
  */
 #define DYNCLK_BASEADDR XPAR_AXI_DYNCLK_0_BASEADDR
 #define VGA_VDMA_ID XPAR_AXIVDMA_0_DEVICE_ID
+#define CAMERA2_VDMA_ID XPAR_AXIVDMA_1_DEVICE_ID
+#define CAMERA1_VDMA_ID XPAR_AXIVDMA_2_DEVICE_ID
+#define CAMERA2_WRITE_CHANNEL 0U
+#define CAMERA1_WRITE_CHANNEL 1U
 #define DISP_VTC_ID XPAR_VTC_0_DEVICE_ID
 #define VID_VTC_IRPT_ID XPS_FPGA3_INT_ID
 #define VID_GPIO_IRPT_ID XPS_FPGA4_INT_ID
@@ -61,6 +66,9 @@
 #define FACE_TRACK_IOU_PERMILLE 200U
 #define FACE_CONFIRM_SCORE_PERMILLE 930U
 #define FACE_HOLD_MISSES 5U
+#define STEREO_DISTANCE_WINDOW 5U
+#define STEREO_CONFIRM_SAMPLES 3U
+#define STEREO_HOLD_MISSES 12U
 
 typedef struct {
 	TinyFaceBox displayed;
@@ -68,8 +76,25 @@ typedef struct {
 	u32 pending_count;
 	u32 pending_score_sum;
 	u32 missed_count;
+	u32 stereo_distance_dm;
+	u32 stereo_samples_dm[STEREO_DISTANCE_WINDOW];
+	u32 stereo_sample_count;
+	u32 stereo_sample_index;
+	u32 stereo_missed_count;
+	int stereo_valid;
 	int visible;
 } FaceTracker;
+
+static void face_tracker_clear_stereo(FaceTracker *tracker)
+{
+	tracker->stereo_distance_dm = 0U;
+	memset(tracker->stereo_samples_dm, 0,
+		sizeof(tracker->stereo_samples_dm));
+	tracker->stereo_sample_count = 0U;
+	tracker->stereo_sample_index = 0U;
+	tracker->stereo_missed_count = 0U;
+	tracker->stereo_valid = 0;
+}
 
 
 /* ------------------------------------------------------------ */
@@ -89,6 +114,7 @@ volatile u32 g_diag_magic = 0xA7021D1AU;
 volatile u32 g_diag_stage = 0U;
 volatile s32 g_diag_status = 0;
 volatile u32 g_ov5640_id = 0U;
+volatile u32 g_ov5640_camera1_id = 0U;
 /*
  * Framebuffers for video data
  */
@@ -99,6 +125,12 @@ volatile u32 g_ov5640_id = 0U;
 u8 frameBuf[DISPLAY_NUM_FRAMES][DEMO_MAX_FRAME]
     __attribute__ ((section(".noinit"), aligned(64)));
 u8 *pFrames[DISPLAY_NUM_FRAMES]; //array of pointers to the frame buffers
+u8 camera1FrameBuf[DISPLAY_NUM_FRAMES][DEMO_MAX_FRAME]
+    __attribute__ ((section(".noinit"), aligned(64)));
+u8 *camera1Frames[DISPLAY_NUM_FRAMES];
+u8 camera2FrameBuf[DISPLAY_NUM_FRAMES][DEMO_MAX_FRAME]
+    __attribute__ ((section(".noinit"), aligned(64)));
+u8 *camera2Frames[DISPLAY_NUM_FRAMES];
 
 /* ------------------------------------------------------------ */
 /*				Procedure Definitions							*/
@@ -189,6 +221,7 @@ static int face_tracker_update(FaceTracker *tracker,
 			return 1;
 		}
 		tracker->visible = 0;
+		face_tracker_clear_stereo(tracker);
 		tracker->missed_count = 0U;
 		return 0;
 	}
@@ -219,6 +252,7 @@ static int face_tracker_update(FaceTracker *tracker,
 	if (tracker->pending_count >= FACE_CONFIRM_FRAMES &&
 		tracker->pending_score_sum >=
 		FACE_CONFIRM_FRAMES * FACE_CONFIRM_SCORE_PERMILLE) {
+		face_tracker_clear_stereo(tracker);
 		tracker->displayed = tracker->pending;
 		tracker->visible = 1;
 		tracker->missed_count = 0U;
@@ -231,6 +265,7 @@ static int face_tracker_update(FaceTracker *tracker,
 		return 1;
 	}
 	tracker->visible = 0;
+	face_tracker_clear_stereo(tracker);
 	tracker->missed_count = 0U;
 	return 0;
 }
@@ -287,15 +322,53 @@ static void bbox_write_all(const FaceTracker trackers[MAX_FACE_BOXES])
 		const TinyFaceBox *box = &trackers[slot].displayed;
 		u32 base = bbox_ctrl_base(slot);
 		if (trackers[slot].visible && face_box_geometry_valid(box)) {
-			u32 distance_dm = face_distance_dm(box);
+			u32 distance_dm = trackers[slot].stereo_valid ?
+				trackers[slot].stereo_distance_dm : face_distance_dm(box);
+			u32 box_height = box->y_max - box->y_min;
+			u32 expanded_y_max = box->y_max + (box_height + 9U) / 10U;
+			u32 display_x_min = 640U + box->x_min / 2U;
+			u32 display_x_max = 640U + box->x_max / 2U;
+			u32 display_y_min = 180U + box->y_min / 2U;
+			if (expanded_y_max > 719U) expanded_y_max = 719U;
+			u32 display_y_max = 180U + expanded_y_max / 2U;
 			Xil_Out32(base + AXI_GPIO2_DATA_OFFSET,
-				BBOX_PACK_Y(box->y_min, box->y_max, distance_dm));
+				BBOX_PACK_Y(display_y_min, display_y_max, distance_dm));
 			Xil_Out32(base + AXI_GPIO_DATA_OFFSET,
-				BBOX_ENABLE_MASK | BBOX_PACK(box->x_min, box->x_max));
+				BBOX_ENABLE_MASK | BBOX_PACK(display_x_min, display_x_max));
 		} else {
 			Xil_Out32(base + AXI_GPIO2_DATA_OFFSET, 0U);
 		}
 	}
+}
+
+static void compose_stereo_frame(u8 *destination, const u8 *camera1,
+	const u8 *camera2)
+{
+	u32 y;
+
+	/* Reduce both dimensions by 2:1 so each 16:9 source keeps its aspect
+	 * ratio as a 640x360 preview.  The two previews are centered vertically
+	 * in the 1280x720 output; the untouched top and bottom bands stay black. */
+	Xil_DCacheInvalidateRange((INTPTR)camera1, DEMO_MAX_FRAME);
+	Xil_DCacheInvalidateRange((INTPTR)camera2, DEMO_MAX_FRAME);
+	for (y = 0U; y < 360U; ++y) {
+		const u8 *left_line = camera1 + (y * 2U) * DEMO_STRIDE;
+		const u8 *right_line = camera2 + (y * 2U) * DEMO_STRIDE;
+		u8 *output_line = destination + (y + 180U) * DEMO_STRIDE;
+		u32 x;
+		for (x = 0U; x < 640U; ++x) {
+			u32 source_offset = (x * 2U) * 3U;
+			u32 left_offset = x * 3U;
+			u32 right_offset = (x + 640U) * 3U;
+			output_line[left_offset] = left_line[source_offset];
+			output_line[left_offset + 1U] = left_line[source_offset + 1U];
+			output_line[left_offset + 2U] = left_line[source_offset + 2U];
+			output_line[right_offset] = right_line[source_offset];
+			output_line[right_offset + 1U] = right_line[source_offset + 1U];
+			output_line[right_offset + 2U] = right_line[source_offset + 2U];
+		}
+	}
+	Xil_DCacheFlushRange((INTPTR)destination, DEMO_MAX_FRAME);
 }
 
 static void face_trackers_update(FaceTracker trackers[MAX_FACE_BOXES],
@@ -371,26 +444,149 @@ static void face_trackers_update(FaceTracker trackers[MAX_FACE_BOXES],
 	}
 }
 
+static void face_trackers_update_stereo(
+	FaceTracker trackers[MAX_FACE_BOXES],
+	const TinyFaceBox camera1_detections[MAX_FACE_BOXES],
+	u32 camera1_detection_count)
+{
+	int camera1_used[MAX_FACE_BOXES] = {0, 0, 0};
+	u32 tracker_index;
+
+	/* Face-box centers are quantized by the small detector grid.  A median of
+	 * the latest five stereo estimates rejects one-frame center jumps before
+	 * they reach the on-screen distance label. */
+	#define SORT_SWAP(a, b) do { \
+		if ((a) > (b)) { u32 temporary = (a); (a) = (b); (b) = temporary; } \
+	} while (0)
+
+	for (tracker_index = 0U; tracker_index < MAX_FACE_BOXES;
+		++tracker_index) {
+		int best_index = -1;
+		float best_cost = 1.0e9f;
+		StereoFaceDistance best_result;
+		u32 candidate_index;
+
+		if (!trackers[tracker_index].visible) {
+			face_tracker_clear_stereo(&trackers[tracker_index]);
+			continue;
+		}
+		for (candidate_index = 0U;
+			candidate_index < camera1_detection_count;
+			++candidate_index) {
+			const TinyFaceBox *camera1_box =
+				&camera1_detections[candidate_index];
+			const TinyFaceBox *camera2_box =
+				&trackers[tracker_index].displayed;
+			u32 camera1_height;
+			u32 camera2_height;
+			u32 height_difference;
+			float cost;
+			StereoFaceDistance result;
+
+			if (camera1_used[candidate_index] ||
+				!face_box_geometry_valid(camera1_box)) continue;
+			camera1_height = camera1_box->y_max - camera1_box->y_min;
+			camera2_height = camera2_box->y_max - camera2_box->y_min;
+			if (camera1_height * 2U < camera2_height ||
+				camera2_height * 2U < camera1_height) continue;
+			if (!stereo_face_distance(camera1_box, camera2_box, &result))
+				continue;
+			height_difference = camera1_height > camera2_height ?
+				camera1_height - camera2_height :
+				camera2_height - camera1_height;
+			cost = result.vertical_error_px * 4.0f +
+				(float)height_difference;
+			if (cost < best_cost) {
+				best_cost = cost;
+				best_index = (int)candidate_index;
+				best_result = result;
+			}
+		}
+
+		if (best_index >= 0) {
+			u32 fallback_distance = face_distance_dm(
+				&trackers[tracker_index].displayed);
+			u32 sorted[STEREO_DISTANCE_WINDOW];
+			u32 sorted_count;
+			u32 first;
+			u32 second;
+
+			/* Reject a center-disparity result that is grossly inconsistent
+			 * with the observed face size.  The size estimate is coarse, but a
+			 * 2:1 gate removes false cross-camera pairings and grid outliers. */
+			if (best_result.distance_dm * 2U < fallback_distance ||
+				best_result.distance_dm > fallback_distance * 2U) {
+				best_index = -1;
+			} else {
+				trackers[tracker_index].stereo_samples_dm[
+					trackers[tracker_index].stereo_sample_index] =
+					best_result.distance_dm;
+				trackers[tracker_index].stereo_sample_index =
+					(trackers[tracker_index].stereo_sample_index + 1U) %
+					STEREO_DISTANCE_WINDOW;
+				if (trackers[tracker_index].stereo_sample_count <
+					STEREO_DISTANCE_WINDOW) {
+					++trackers[tracker_index].stereo_sample_count;
+				}
+			}
+			if (best_index < 0) {
+				if (trackers[tracker_index].stereo_valid &&
+					++trackers[tracker_index].stereo_missed_count >
+					STEREO_HOLD_MISSES) {
+					face_tracker_clear_stereo(&trackers[tracker_index]);
+				}
+				continue;
+			}
+			camera1_used[best_index] = 1;
+			sorted_count = trackers[tracker_index].stereo_sample_count;
+			for (first = 0U; first < sorted_count; ++first) {
+				sorted[first] = trackers[tracker_index].stereo_samples_dm[first];
+			}
+			for (first = 0U; first < sorted_count; ++first) {
+				for (second = first + 1U; second < sorted_count; ++second) {
+					SORT_SWAP(sorted[first], sorted[second]);
+				}
+			}
+			if (trackers[tracker_index].stereo_valid) {
+				u32 median = sorted[sorted_count / 2U];
+				trackers[tracker_index].stereo_distance_dm =
+					(3U * trackers[tracker_index].stereo_distance_dm +
+					 median + 2U) / 4U;
+			} else if (sorted_count >= STEREO_CONFIRM_SAMPLES) {
+				trackers[tracker_index].stereo_distance_dm =
+					sorted[sorted_count / 2U];
+				trackers[tracker_index].stereo_valid = 1;
+			}
+			trackers[tracker_index].stereo_missed_count = 0U;
+		} else if (trackers[tracker_index].stereo_valid &&
+			++trackers[tracker_index].stereo_missed_count >
+			STEREO_HOLD_MISSES) {
+			face_tracker_clear_stereo(&trackers[tracker_index]);
+		}
+	}
+	#undef SORT_SWAP
+}
+
 /* Wait for a real S2MM frame boundary.  Sampling immediately after the
  * pointer advances guarantees that (current - 1) is the frame that has just
  * completed, leaving two full frame periods before it can be overwritten. */
-static int wait_for_write_frame_advance(u32 *writing_frame)
+static int wait_for_write_frame_advance(u32 channel, u32 *writing_frame)
 {
-	u32 start_frame = vdma_write_current_frame();
+	u32 start_frame = vdma_write_current_frame(channel);
 	u32 elapsed_us;
 
 	if (writing_frame == NULL || start_frame >= DISPLAY_NUM_FRAMES) {
 		return XST_FAILURE;
 	}
 	for (elapsed_us = 0U; elapsed_us < 200000U; elapsed_us += 500U) {
-		u32 errors = vdma_write_errors();
+		u32 errors = vdma_write_errors(channel);
 		u32 current_frame;
 
 		if (errors != 0U) {
-			vdma_write_clear_errors(errors);
-			start_frame = vdma_write_current_frame();
+			vdma_write_clear_errors(channel, errors);
+			start_frame = vdma_write_current_frame(channel);
 		}
-		current_frame = vdma_write_current_frame();
+		current_frame = vdma_write_current_frame(channel);
 		if (current_frame < DISPLAY_NUM_FRAMES &&
 			current_frame != start_frame) {
 			*writing_frame = current_frame;
@@ -425,7 +621,7 @@ int main(void)
 
 	g_diag_stage = 0x10U;
 	diag_flush();
-	xil_printf("\r\nAX7021 OV5640 camera2 HDMI demo start\r\n");
+	xil_printf("\r\nAX7021 AN5642 dual-camera capture demo start\r\n");
 	g_diag_stage = 0x11U;
 
 	/*
@@ -435,12 +631,24 @@ int main(void)
 	{
 		g_diag_stage = 0x20U + (u32)i;
 		pFrames[i] = frameBuf[i];
+		camera1Frames[i] = camera1FrameBuf[i];
+		camera2Frames[i] = camera2FrameBuf[i];
 		memset(pFrames[i], 0, DEMO_MAX_FRAME);
+		memset(camera1Frames[i], 0, DEMO_MAX_FRAME);
+		memset(camera2Frames[i], 0, DEMO_MAX_FRAME);
 		Xil_DCacheFlushRange((INTPTR) pFrames[i], DEMO_MAX_FRAME) ;
+		Xil_DCacheFlushRange((INTPTR) camera1Frames[i], DEMO_MAX_FRAME);
+		Xil_DCacheFlushRange((INTPTR) camera2Frames[i], DEMO_MAX_FRAME);
 		g_diag_stage = 0x30U + (u32)i;
 	}
-	xil_printf("FRAME buffers: 0x%x 0x%x 0x%x\r\n",
+	xil_printf("DISPLAY buffers: 0x%x 0x%x 0x%x\r\n",
 		(u32)pFrames[0], (u32)pFrames[1], (u32)pFrames[2]);
+	xil_printf("CAMERA1 buffers: 0x%x 0x%x 0x%x\r\n",
+		(u32)camera1Frames[0], (u32)camera1Frames[1],
+		(u32)camera1Frames[2]);
+	xil_printf("CAMERA2 buffers: 0x%x 0x%x 0x%x\r\n",
+		(u32)camera2Frames[0], (u32)camera2Frames[1],
+		(u32)camera2Frames[2]);
 
 	g_diag_stage = 0x40U;
 	Status = i2c_init(&ps_i2c0, XPAR_XIICPS_0_DEVICE_ID,40000);
@@ -452,7 +660,7 @@ int main(void)
 		return XST_FAILURE;
 	}
 	g_diag_stage = 0x41U;
-	xil_printf("PS I2C0 ready at 40 kHz\r\n");
+	xil_printf("PS I2C0 camera1/HDMI ready at 40 kHz\r\n");
 
 	Status = i2c_init(&ps_i2c1, XPAR_XIICPS_1_DEVICE_ID,40000);
 	if (Status != XST_SUCCESS) {
@@ -490,7 +698,7 @@ int main(void)
 	 * throughout the camera/VDMA startup delay. */
 	bbox_ctrl_initialize();
 	g_diag_stage = 0x50U;
-	xil_printf("BBOX overlay: 3 faces, PEOPLE distance labels enabled\r\n");
+	xil_printf("BBOX overlay: 3 faces, calibrated stereo distance labels enabled\r\n");
 
 	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x3);
 	usleep(500000);
@@ -516,10 +724,35 @@ int main(void)
 		xil_printf("ERROR: HDMI companion register write failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
-	/*
-	 * Initialize Sensor
-	 */
+	/* Camera1 is connected to PS I2C0 through the board I2C extender. */
 	g_diag_stage = 0x60U;
+	Status = ov5640_read(&ps_i2c0, 0x300A, &chip_id_high);
+	if (Status == XST_SUCCESS) {
+		Status = ov5640_read(&ps_i2c0, 0x300B, &chip_id_low);
+	}
+	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE006U;
+		diag_flush();
+		xil_printf("ERROR: OV5640 camera1 chip ID read failed (%d)\r\n", Status);
+		return XST_FAILURE;
+	}
+	g_ov5640_camera1_id = ((u32)chip_id_high << 8) | (u32)chip_id_low;
+	xil_printf("OV5640 camera1 chip ID: 0x%x%x\r\n", chip_id_high, chip_id_low);
+	if ((chip_id_high != 0x56U) || (chip_id_low != 0x40U)) {
+		xil_printf("ERROR: unexpected camera1 chip ID\r\n");
+		return XST_FAILURE;
+	}
+	Status = sensor_init(&ps_i2c0);
+	if (Status != XST_SUCCESS) {
+		xil_printf("ERROR: OV5640 camera1 register initialization failed (%d)\r\n",
+			Status);
+		return XST_FAILURE;
+	}
+	xil_printf("OV5640 camera1 configured for 1280x720 RGB output\r\n");
+
+	/* Camera2 is connected directly to the independent PS I2C1 bus. */
+	g_diag_stage = 0x62U;
 	Status = ov5640_read(&ps_i2c1, 0x300A, &chip_id_high);
 	if (Status == XST_SUCCESS) {
 		Status = ov5640_read(&ps_i2c1, 0x300B, &chip_id_low);
@@ -584,6 +817,10 @@ int main(void)
 		xil_printf("Display Ctrl initialization failed during demo initialization%d\r\n", Status);
 		return XST_FAILURE;
 	}
+	/* The preview is produced by software into its own three-frame display
+	 * ring, so the read VDMA parks on the completed composition instead of
+	 * following Camera2's write-frame pointer through GenLock. */
+	dispCtrl.vdmaConfig.EnableSync = 0;
 	Status = DisplayStart(&dispCtrl);
 	if (Status != XST_SUCCESS)
 	{
@@ -596,13 +833,23 @@ int main(void)
 	/* Clear frame buffer */
 	memset(dispCtrl.framePtr[dispCtrl.curFrame], 0, DEMO_MAX_FRAME);
 	/* Start Sensor Vdma */
-	Status = vdma_write_init(XPAR_AXIVDMA_1_DEVICE_ID, 1280 * 3, 720,
-		1280 * 3, dispCtrl.framePtr, DISPLAY_NUM_FRAMES);
+	Status = vdma_write_init(CAMERA2_WRITE_CHANNEL, CAMERA2_VDMA_ID,
+		1280 * 3, 720,
+		1280 * 3, camera2Frames, DISPLAY_NUM_FRAMES);
 	if (Status != XST_SUCCESS) {
 		g_diag_status = Status;
 		g_diag_stage = 0xE00DU;
 		diag_flush();
-		xil_printf("ERROR: camera write VDMA failed (%d)\r\n", Status);
+		xil_printf("ERROR: camera2 write VDMA failed (%d)\r\n", Status);
+		return XST_FAILURE;
+	}
+	Status = vdma_write_init(CAMERA1_WRITE_CHANNEL, CAMERA1_VDMA_ID,
+		1280 * 3, 720, 1280 * 3, camera1Frames, DISPLAY_NUM_FRAMES);
+	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE00EU;
+		diag_flush();
+		xil_printf("ERROR: camera1 write VDMA failed (%d)\r\n", Status);
 		return XST_FAILURE;
 	}
 
@@ -612,43 +859,73 @@ int main(void)
 	 * seconds after PCLK starts.  Wait until that hardware delay has elapsed
 	 * and all circular buffers can contain a complete frame. */
 	usleep(7000000);
-	u32 startup_vdma_errors = vdma_write_errors();
-	if (startup_vdma_errors != 0U) {
-		xil_printf("VDMA startup errors: 0x%x (clearing latched frame status)\r\n",
-			startup_vdma_errors);
-		vdma_write_clear_errors(startup_vdma_errors);
-		usleep(50000);
-		xil_printf("VDMA errors after clear: 0x%x\r\n", vdma_write_errors());
+	u32 camera2_startup_errors = vdma_write_errors(CAMERA2_WRITE_CHANNEL);
+	u32 camera1_startup_errors = vdma_write_errors(CAMERA1_WRITE_CHANNEL);
+	if (camera2_startup_errors != 0U) {
+		xil_printf("CAMERA2 VDMA startup errors: 0x%x (clearing)\r\n",
+			camera2_startup_errors);
+		vdma_write_clear_errors(CAMERA2_WRITE_CHANNEL, camera2_startup_errors);
 	}
-	u32 frame_seen_mask = 0U;
-	for (u32 probe = 0U; probe < 300U && frame_seen_mask != 0x7U; ++probe) {
-		u32 frame = vdma_write_current_frame();
-		if (frame < DISPLAY_NUM_FRAMES) {
-			frame_seen_mask |= 1U << frame;
+	if (camera1_startup_errors != 0U) {
+		xil_printf("CAMERA1 VDMA startup errors: 0x%x (clearing)\r\n",
+			camera1_startup_errors);
+		vdma_write_clear_errors(CAMERA1_WRITE_CHANNEL, camera1_startup_errors);
+	}
+	if (camera1_startup_errors != 0U || camera2_startup_errors != 0U) {
+		usleep(50000);
+		xil_printf("VDMA errors after clear: camera1=0x%x camera2=0x%x\r\n",
+			vdma_write_errors(CAMERA1_WRITE_CHANNEL),
+			vdma_write_errors(CAMERA2_WRITE_CHANNEL));
+	}
+	u32 camera1_seen_mask = 0U;
+	u32 camera2_seen_mask = 0U;
+	for (u32 probe = 0U; probe < 600U &&
+		(camera1_seen_mask != 0x7U || camera2_seen_mask != 0x7U); ++probe) {
+		u32 camera1_frame = vdma_write_current_frame(CAMERA1_WRITE_CHANNEL);
+		u32 camera2_frame = vdma_write_current_frame(CAMERA2_WRITE_CHANNEL);
+		if (camera1_frame < DISPLAY_NUM_FRAMES) {
+			camera1_seen_mask |= 1U << camera1_frame;
+		}
+		if (camera2_frame < DISPLAY_NUM_FRAMES) {
+			camera2_seen_mask |= 1U << camera2_frame;
 		}
 		usleep(5000);
 	}
-	if (frame_seen_mask != 0x7U || vdma_write_errors() != 0U) {
-		xil_printf("ERROR: VDMA three-frame self-test failed (seen=0x%x err=0x%x)\r\n",
-			frame_seen_mask, vdma_write_errors());
+	if (camera1_seen_mask != 0x7U || camera2_seen_mask != 0x7U ||
+		vdma_write_errors(CAMERA1_WRITE_CHANNEL) != 0U ||
+		vdma_write_errors(CAMERA2_WRITE_CHANNEL) != 0U) {
+		xil_printf("ERROR: dual VDMA self-test failed (cam1 seen=0x%x err=0x%x cam2 seen=0x%x err=0x%x)\r\n",
+			camera1_seen_mask, vdma_write_errors(CAMERA1_WRITE_CHANNEL),
+			camera2_seen_mask, vdma_write_errors(CAMERA2_WRITE_CHANNEL));
 		return XST_FAILURE;
 	}
-	xil_printf("FRAME_SYNC_READY: seen=0x%x current=f%d errors=0x%x\r\n",
-		frame_seen_mask, vdma_write_current_frame(), vdma_write_errors());
-	xil_printf("VIDEO RUNNING: camera2 -> 3-frame GenLock DDR -> HDMI, 1280x720\r\n");
+	xil_printf("CAMERA1_FRAME_SYNC_READY: seen=0x%x current=f%d errors=0x%x\r\n",
+		camera1_seen_mask, vdma_write_current_frame(CAMERA1_WRITE_CHANNEL),
+		vdma_write_errors(CAMERA1_WRITE_CHANNEL));
+	xil_printf("CAMERA2_FRAME_SYNC_READY: seen=0x%x current=f%d errors=0x%x\r\n",
+		camera2_seen_mask, vdma_write_current_frame(CAMERA2_WRITE_CHANNEL),
+		vdma_write_errors(CAMERA2_WRITE_CHANNEL));
+	xil_printf("DUAL CAPTURE RUNNING: camera1 + camera2 -> independent DDR rings\r\n");
+	xil_printf("STEREO PREVIEW: camera1 left | camera2 right, 640x360 each, aspect ratio preserved\r\n");
 	u32 detector_iterations = 0U;
+	u32 display_frame = 1U;
 	int detector_error_reported = 0;
 	FaceTracker face_trackers[MAX_FACE_BOXES];
 	memset(face_trackers, 0, sizeof(face_trackers));
 	while (1) {
 		TinyFaceBox detected_boxes[MAX_FACE_BOXES];
+		TinyFaceBox camera1_detected_boxes[MAX_FACE_BOXES];
 		u32 writing_frame;
 		u32 completed_frame;
+		u32 camera1_writing_frame;
+		u32 camera1_completed_frame;
 		int detector_status;
+		int camera1_detector_status;
 
-		if (wait_for_write_frame_advance(&writing_frame) != XST_SUCCESS) {
+		if (wait_for_write_frame_advance(CAMERA2_WRITE_CHANNEL,
+			&writing_frame) != XST_SUCCESS) {
 			xil_printf("ERROR: camera VDMA frame boundary timeout (err=0x%x)\r\n",
-				vdma_write_errors());
+				vdma_write_errors(CAMERA2_WRITE_CHANNEL));
 			break;
 		}
 		/* With three circular buffers, the previous index is fully written and
@@ -656,30 +933,60 @@ int main(void)
 		 * Preprocessing copies it into the detector's private 160x120 input. */
 		completed_frame = (writing_frame + DISPLAY_NUM_FRAMES - 1U) %
 			DISPLAY_NUM_FRAMES;
-		if (detector_iterations < 12U) {
-			xil_printf("FRAME_SYNC: writing=f%d, inference=f%d\r\n",
-				writing_frame, completed_frame);
+		camera1_writing_frame = vdma_write_current_frame(CAMERA1_WRITE_CHANNEL);
+		if (camera1_writing_frame >= DISPLAY_NUM_FRAMES) {
+			xil_printf("ERROR: camera1 frame pointer invalid (f%d)\r\n",
+				camera1_writing_frame);
+			break;
 		}
-		detector_status = tiny_face_infer(dispCtrl.framePtr[completed_frame],
+		camera1_completed_frame = (camera1_writing_frame +
+			DISPLAY_NUM_FRAMES - 1U) % DISPLAY_NUM_FRAMES;
+		if (detector_iterations < 12U) {
+			xil_printf("FRAME_SYNC: cam1=f%d cam2=f%d inference=f%d display=f%d\r\n",
+				camera1_writing_frame, writing_frame, completed_frame,
+				display_frame);
+		}
+		compose_stereo_frame(dispCtrl.framePtr[display_frame],
+			camera1Frames[camera1_completed_frame],
+			camera2Frames[completed_frame]);
+		if (DisplayChangeFrame(&dispCtrl, display_frame) != XST_SUCCESS) {
+			xil_printf("ERROR: stereo display frame switch failed\r\n");
+			break;
+		}
+		display_frame = (display_frame + 1U) % DISPLAY_NUM_FRAMES;
+		detector_status = tiny_face_infer(camera2Frames[completed_frame],
 				1280U, 720U, DEMO_STRIDE, detected_boxes, MAX_FACE_BOXES);
+		camera1_detector_status = tiny_face_infer(
+			camera1Frames[camera1_completed_frame], 1280U, 720U,
+			DEMO_STRIDE, camera1_detected_boxes, MAX_FACE_BOXES);
 		++detector_iterations;
 		if (detector_status >= 0) {
 			u32 slot;
 			u32 visible_count = 0U;
 			face_trackers_update(face_trackers, detected_boxes,
 				(u32)detector_status);
+			if (camera1_detector_status >= 0) {
+				face_trackers_update_stereo(face_trackers,
+					camera1_detected_boxes, (u32)camera1_detector_status);
+			} else {
+				face_trackers_update_stereo(face_trackers,
+					camera1_detected_boxes, 0U);
+			}
 			bbox_write_all(face_trackers);
 			if ((detector_iterations % 20U) == 0U) {
 				for (slot = 0U; slot < MAX_FACE_BOXES; ++slot) {
 					if (face_trackers[slot].visible) {
 						const TinyFaceBox *box = &face_trackers[slot].displayed;
+						u32 distance_dm = face_trackers[slot].stereo_valid ?
+							face_trackers[slot].stereo_distance_dm :
+							face_distance_dm(box);
 						++visible_count;
-						xil_printf("FACE%d[f%d]: (%d,%d)-(%d,%d) score=%d/1000 distance=%d.%dm\r\n",
+						xil_printf("FACE%d[f%d]: (%d,%d)-(%d,%d) score=%d/1000 distance=%d.%dm source=%s\r\n",
 							slot, completed_frame, box->x_min, box->y_min,
 							box->x_max, box->y_max,
 							face_score_permille(box->score),
-							face_distance_dm(box) / 10U,
-							face_distance_dm(box) % 10U);
+							distance_dm / 10U, distance_dm % 10U,
+							face_trackers[slot].stereo_valid ? "stereo" : "fallback");
 					}
 				}
 				if (visible_count == 0U) {
@@ -694,6 +1001,11 @@ int main(void)
 					detector_status);
 				detector_error_reported = 1;
 			}
+		}
+		if (camera1_detector_status < 0 && !detector_error_reported) {
+			xil_printf("ERROR: camera1 tiny_face inference failed (%d)\r\n",
+				camera1_detector_status);
+			detector_error_reported = 1;
 		}
 	}
 
