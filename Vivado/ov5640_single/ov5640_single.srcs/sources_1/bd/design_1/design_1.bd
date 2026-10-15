@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x853409F0073E699B",
+      "boundary_crc": "0xC8905B7850E7035B",
       "device": "xc7z020clg484-2",
       "gen_directory": "../../../../ov5640_single.gen/sources_1/bd/design_1",
       "name": "design_1",
@@ -308,6 +308,37 @@
           }
         }
       },
+      "cmos2_i2c": {
+        "mode": "Master",
+        "vlnv_bus_definition": "xilinx.com:interface:iic:1.0",
+        "vlnv": "xilinx.com:interface:iic_rtl:1.0",
+        "port_maps": {
+          "SDA_I": {
+            "physical_name": "cmos2_i2c_sda_i",
+            "direction": "I"
+          },
+          "SDA_O": {
+            "physical_name": "cmos2_i2c_sda_o",
+            "direction": "O"
+          },
+          "SDA_T": {
+            "physical_name": "cmos2_i2c_sda_t",
+            "direction": "O"
+          },
+          "SCL_I": {
+            "physical_name": "cmos2_i2c_scl_i",
+            "direction": "I"
+          },
+          "SCL_O": {
+            "physical_name": "cmos2_i2c_scl_o",
+            "direction": "O"
+          },
+          "SCL_T": {
+            "physical_name": "cmos2_i2c_scl_t",
+            "direction": "O"
+          }
+        }
+      },
       "cmos_rstn": {
         "mode": "Master",
         "vlnv_bus_definition": "xilinx.com:interface:gpio:1.0",
@@ -316,7 +347,7 @@
           "TRI_O": {
             "physical_name": "cmos_rstn_tri_o",
             "direction": "O",
-            "left": "0",
+            "left": "1",
             "right": "0"
           }
         }
@@ -349,18 +380,18 @@
           }
         }
       },
-      "cmos1_d": {
+      "cmos2_d": {
         "direction": "I",
         "left": "9",
         "right": "0"
       },
-      "cmos1_href": {
+      "cmos2_href": {
         "direction": "I"
       },
-      "cmos1_pclk": {
+      "cmos2_pclk": {
         "direction": "I"
       },
-      "cmos1_vsync": {
+      "cmos2_vsync": {
         "direction": "I"
       },
       "hdmi_out_data": {
@@ -659,7 +690,7 @@
             "value": "1"
           },
           "PCW_EN_EMIO_I2C1": {
-            "value": "0"
+            "value": "1"
           },
           "PCW_EN_EMIO_MODEM_UART0": {
             "value": "0"
@@ -722,7 +753,7 @@
             "value": "1"
           },
           "PCW_EN_I2C1": {
-            "value": "0"
+            "value": "1"
           },
           "PCW_EN_MODEM_UART0": {
             "value": "0"
@@ -880,8 +911,17 @@
           "PCW_I2C0_RESET_ENABLE": {
             "value": "0"
           },
+          "PCW_I2C1_BASEADDR": {
+            "value": "0xE0005000"
+          },
+          "PCW_I2C1_HIGHADDR": {
+            "value": "0xE0005FFF"
+          },
+          "PCW_I2C1_I2C1_IO": {
+            "value": "EMIO"
+          },
           "PCW_I2C1_PERIPHERAL_ENABLE": {
-            "value": "0"
+            "value": "1"
           },
           "PCW_I2C_PERIPHERAL_FREQMHZ": {
             "value": "127.777779"
@@ -1511,6 +1551,9 @@
             "value": "0"
           },
           "PCW_P2F_I2C0_INTR": {
+            "value": "0"
+          },
+          "PCW_P2F_I2C1_INTR": {
             "value": "0"
           },
           "PCW_P2F_QSPI_INTR": {
@@ -2272,7 +2315,7 @@
             "value": "1"
           },
           "C_GPIO_WIDTH": {
-            "value": "1"
+            "value": "2"
           }
         }
       },
@@ -5005,6 +5048,12 @@
           "i2c_extender_0/i2c_up"
         ]
       },
+      "processing_system7_0_IIC_1": {
+        "interface_ports": [
+          "processing_system7_0/IIC_1",
+          "cmos2_i2c"
+        ]
+      },
       "processing_system7_0_M_AXI_GP0": {
         "interface_ports": [
           "processing_system7_0/M_AXI_GP0",
@@ -5147,27 +5196,27 @@
           "axi_vdma_0/mm2s_frame_ptr_in"
         ]
       },
-      "cmos_d_1": {
+      "cmos2_d_1": {
         "ports": [
-          "cmos1_d",
+          "cmos2_d",
           "alinx_ov5640_0/cmos_d"
         ]
       },
-      "cmos_href_1": {
+      "cmos2_href_1": {
         "ports": [
-          "cmos1_href",
+          "cmos2_href",
           "alinx_ov5640_0/cmos_href"
         ]
       },
-      "cmos_pclk_1": {
+      "cmos2_pclk_1": {
         "ports": [
-          "cmos1_pclk",
+          "cmos2_pclk",
           "alinx_ov5640_0/cmos_pclk"
         ]
       },
-      "cmos_vsync_1": {
+      "cmos2_vsync_1": {
         "ports": [
-          "cmos1_vsync",
+          "cmos2_vsync",
           "alinx_ov5640_0/cmos_vsync"
         ]
       },

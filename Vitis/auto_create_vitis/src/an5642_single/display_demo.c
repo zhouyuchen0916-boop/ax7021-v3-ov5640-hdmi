@@ -82,6 +82,7 @@ typedef struct {
 DisplayCtrl dispCtrl;
 XAxiVdma vdma;
 XIicPs ps_i2c0;
+XIicPs ps_i2c1;
 XGpio hdmi_rstn;
 XGpio cmos_rstn;
 volatile u32 g_diag_magic = 0xA7021D1AU;
@@ -424,7 +425,7 @@ int main(void)
 
 	g_diag_stage = 0x10U;
 	diag_flush();
-	xil_printf("\r\nAX7021 OV5640 HDMI demo start\r\n");
+	xil_printf("\r\nAX7021 OV5640 camera2 HDMI demo start\r\n");
 	g_diag_stage = 0x11U;
 
 	/*
@@ -451,7 +452,17 @@ int main(void)
 		return XST_FAILURE;
 	}
 	g_diag_stage = 0x41U;
-	xil_printf("PS I2C ready at 40 kHz\r\n");
+	xil_printf("PS I2C0 ready at 40 kHz\r\n");
+
+	Status = i2c_init(&ps_i2c1, XPAR_XIICPS_1_DEVICE_ID,40000);
+	if (Status != XST_SUCCESS) {
+		g_diag_status = Status;
+		g_diag_stage = 0xE00BU;
+		diag_flush();
+		xil_printf("ERROR: PS I2C1 initialization failed (%d)\r\n", Status);
+		return XST_FAILURE;
+	}
+	xil_printf("PS I2C1 camera2 ready at 40 kHz\r\n");
 
 	Status = XGpio_Initialize(&hdmi_rstn, XPAR_HDMI_RST_DEVICE_ID);   //initialize GPIO IP
 	if (Status != XST_SUCCESS) {
@@ -481,13 +492,13 @@ int main(void)
 	g_diag_stage = 0x50U;
 	xil_printf("BBOX overlay: 3 faces, PEOPLE distance labels enabled\r\n");
 
-	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x1);
+	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x3);
 	usleep(500000);
 	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x0);               //set GPIO output value to 0
 
 	usleep(500000);
 	XGpio_DiscreteWrite(&hdmi_rstn, 1, 0x1);
-	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x1);
+	XGpio_DiscreteWrite(&cmos_rstn, 1, 0x3);
 	usleep(500000);
 	Status = i2c_reg8_write(&ps_i2c0,0x72>>1,0x08,0x35);
 	if (Status != XST_SUCCESS) {
@@ -509,9 +520,9 @@ int main(void)
 	 * Initialize Sensor
 	 */
 	g_diag_stage = 0x60U;
-	Status = ov5640_read(&ps_i2c0, 0x300A, &chip_id_high);
+	Status = ov5640_read(&ps_i2c1, 0x300A, &chip_id_high);
 	if (Status == XST_SUCCESS) {
-		Status = ov5640_read(&ps_i2c0, 0x300B, &chip_id_low);
+		Status = ov5640_read(&ps_i2c1, 0x300B, &chip_id_low);
 	}
 	if (Status != XST_SUCCESS) {
 		g_diag_status = Status;
@@ -523,14 +534,14 @@ int main(void)
 	g_ov5640_id = ((u32)chip_id_high << 8) | (u32)chip_id_low;
 	g_diag_stage = 0x61U;
 	diag_flush();
-	xil_printf("OV5640 chip ID: 0x%x%x\r\n", chip_id_high, chip_id_low);
+	xil_printf("OV5640 camera2 chip ID: 0x%x%x\r\n", chip_id_high, chip_id_low);
 	if ((chip_id_high != 0x56U) || (chip_id_low != 0x40U)) {
 		g_diag_stage = 0xE007U;
 		diag_flush();
 		xil_printf("ERROR: unexpected camera chip ID\r\n");
 		return XST_FAILURE;
 	}
-	Status = sensor_init(&ps_i2c0);
+	Status = sensor_init(&ps_i2c1);
 	if (Status != XST_SUCCESS) {
 		g_diag_status = Status;
 		g_diag_stage = 0xE008U;
@@ -539,7 +550,7 @@ int main(void)
 		return XST_FAILURE;
 	}
 	g_diag_stage = 0x70U;
-	xil_printf("OV5640 configured for 1280x720 RGB output\r\n");
+	xil_printf("OV5640 camera2 configured for 1280x720 RGB output\r\n");
 	/*
 	 * Initialize VDMA driver
 	 */
@@ -624,7 +635,7 @@ int main(void)
 	}
 	xil_printf("FRAME_SYNC_READY: seen=0x%x current=f%d errors=0x%x\r\n",
 		frame_seen_mask, vdma_write_current_frame(), vdma_write_errors());
-	xil_printf("VIDEO RUNNING: camera -> 3-frame GenLock DDR -> HDMI, 1280x720\r\n");
+	xil_printf("VIDEO RUNNING: camera2 -> 3-frame GenLock DDR -> HDMI, 1280x720\r\n");
 	u32 detector_iterations = 0U;
 	int detector_error_reported = 0;
 	FaceTracker face_trackers[MAX_FACE_BOXES];

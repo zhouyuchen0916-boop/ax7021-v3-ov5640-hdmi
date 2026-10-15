@@ -11,7 +11,7 @@ IF NOT EXIST "R:\Vivado\auto_create_project\create_project.tcl" (
 )
 
 PUSHD "R:\Vivado\auto_create_project"
-CALL "D:\Xilinx\Vivado\2023.1\bin\vivado.bat" -mode batch -source "R:\Vivado\auto_create_project\create_project.tcl" -nojournal -log "R:\Vivado\auto_create_project\build_ax7021_v3.log"
+CALL "D:\Xilinx\Vivado\2023.1\bin\vivado.bat" -mode batch -source "R:\Vivado\auto_create_project\create_project.tcl" -tclargs %* -nojournal -log "R:\Vivado\auto_create_project\build_ax7021_v3.log"
 SET BUILD_RC=%ERRORLEVEL%
 POPD
 EXIT /B %BUILD_RC%

@@ -37,15 +37,19 @@
 
   set cmos1_i2c [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:iic_rtl:1.0 cmos1_i2c ]
 
+  set cmos2_i2c [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:iic_rtl:1.0 cmos2_i2c ]
+
   set cmos_rstn [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:gpio_rtl:1.0 cmos_rstn ]
 
 
   # Create ports
   set hdmi_out_clk [ create_bd_port -dir O -type clk hdmi_out_clk ]
-  set cmos1_d [ create_bd_port -dir I -from 9 -to 0 cmos1_d ]
-  set cmos1_href [ create_bd_port -dir I cmos1_href ]
-  set cmos1_pclk [ create_bd_port -dir I cmos1_pclk ]
-  set cmos1_vsync [ create_bd_port -dir I cmos1_vsync ]
+  # Camera-2-only bring-up: reuse the proven single-camera processing path,
+  # but source its DVP stream from the second OV5640 on AN5642/J16.
+  set cmos2_d [ create_bd_port -dir I -from 9 -to 0 cmos2_d ]
+  set cmos2_href [ create_bd_port -dir I cmos2_href ]
+  set cmos2_pclk [ create_bd_port -dir I cmos2_pclk ]
+  set cmos2_vsync [ create_bd_port -dir I cmos2_vsync ]
   set hdmi_out_data [ create_bd_port -dir O -from 23 -to 0 hdmi_out_data ]
   set hdmi_out_de [ create_bd_port -dir O hdmi_out_de ]
   set hdmi_out_hs [ create_bd_port -dir O hdmi_out_hs ]
@@ -72,7 +76,7 @@
   set cmos_rst [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 cmos_rst ]
   set_property -dict [list \
     CONFIG.C_ALL_OUTPUTS {1} \
-    CONFIG.C_GPIO_WIDTH {1} \
+    CONFIG.C_GPIO_WIDTH {2} \
   ] $cmos_rst
 
 
@@ -223,6 +227,7 @@ set axis_subset_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_s
   connect_bd_intf_net -intf_net processing_system7_0_DDR [get_bd_intf_pins processing_system7_0/DDR] [get_bd_intf_ports DDR]
   connect_bd_intf_net -intf_net processing_system7_0_FIXED_IO [get_bd_intf_pins processing_system7_0/FIXED_IO] [get_bd_intf_ports FIXED_IO]
   connect_bd_intf_net -intf_net processing_system7_0_IIC_0 [get_bd_intf_pins processing_system7_0/IIC_0] [get_bd_intf_pins i2c_extender_0/i2c_up]
+  connect_bd_intf_net -intf_net processing_system7_0_IIC_1 [get_bd_intf_pins processing_system7_0/IIC_1] [get_bd_intf_ports cmos2_i2c]
   connect_bd_intf_net -intf_net processing_system7_0_M_AXI_GP0 [get_bd_intf_pins processing_system7_0/M_AXI_GP0] [get_bd_intf_pins processing_system7_0_axi_periph/S00_AXI]
   connect_bd_intf_net -intf_net processing_system7_0_axi_periph_M00_AXI [get_bd_intf_pins axi_vdma_0/S_AXI_LITE] [get_bd_intf_pins processing_system7_0_axi_periph/M00_AXI]
   connect_bd_intf_net -intf_net processing_system7_0_axi_periph_M01_AXI [get_bd_intf_pins processing_system7_0_axi_periph/M01_AXI] [get_bd_intf_pins v_tc_0/ctrl]
@@ -240,10 +245,10 @@ set axis_subset_converter_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_s
   connect_bd_net -net axi_dynclk_0_PXL_CLK_O [get_bd_pins axi_dynclk_0/PXL_CLK_O] [get_bd_ports hdmi_out_clk] [get_bd_pins v_axi4s_vid_out_0/vid_io_out_clk] [get_bd_pins v_tc_0/clk]
   connect_bd_net -net camera_frame_pointer [get_bd_pins axi_vdma_1/s2mm_frame_ptr_out] [get_bd_pins axi_vdma_0/mm2s_frame_ptr_in]
   connect_bd_net -net axi_vdma_0_mm2s_introut [get_bd_pins axi_vdma_0/mm2s_introut] [get_bd_pins xlconcat_0/In0]
-  connect_bd_net -net cmos_d_1 [get_bd_ports cmos1_d] [get_bd_pins alinx_ov5640_0/cmos_d]
-  connect_bd_net -net cmos_href_1 [get_bd_ports cmos1_href] [get_bd_pins alinx_ov5640_0/cmos_href]
-  connect_bd_net -net cmos_pclk_1 [get_bd_ports cmos1_pclk] [get_bd_pins alinx_ov5640_0/cmos_pclk]
-  connect_bd_net -net cmos_vsync_1 [get_bd_ports cmos1_vsync] [get_bd_pins alinx_ov5640_0/cmos_vsync]
+  connect_bd_net -net cmos2_d_1 [get_bd_ports cmos2_d] [get_bd_pins alinx_ov5640_0/cmos_d]
+  connect_bd_net -net cmos2_href_1 [get_bd_ports cmos2_href] [get_bd_pins alinx_ov5640_0/cmos_href]
+  connect_bd_net -net cmos2_pclk_1 [get_bd_ports cmos2_pclk] [get_bd_pins alinx_ov5640_0/cmos_pclk]
+  connect_bd_net -net cmos2_vsync_1 [get_bd_ports cmos2_vsync] [get_bd_pins alinx_ov5640_0/cmos_vsync]
   connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins axi_dynclk_0/REF_CLK_I] [get_bd_pins axi_dynclk_0/s00_axi_aclk] [get_bd_pins bbox_ctrl/s_axi_aclk] [get_bd_pins bbox_ctrl1/s_axi_aclk] [get_bd_pins bbox_ctrl2/s_axi_aclk] [get_bd_pins cmos_rst/s_axi_aclk] [get_bd_pins hdmi_rst/s_axi_aclk] [get_bd_pins axi_vdma_0/s_axi_lite_aclk] [get_bd_pins axi_vdma_1/s_axi_lite_aclk] [get_bd_pins tiny_face_accel_0/ap_clk] [get_bd_pins axi_mem_intercon/S02_ACLK] [get_bd_pins axi_mem_intercon/S03_ACLK] [get_bd_pins processing_system7_0_axi_periph/ACLK] [get_bd_pins processing_system7_0_axi_periph/S00_ACLK] [get_bd_pins processing_system7_0_axi_periph/M00_ACLK] [get_bd_pins processing_system7_0_axi_periph/M01_ACLK] [get_bd_pins processing_system7_0_axi_periph/M02_ACLK] [get_bd_pins processing_system7_0_axi_periph/M03_ACLK] [get_bd_pins processing_system7_0_axi_periph/M04_ACLK] [get_bd_pins processing_system7_0_axi_periph/M05_ACLK] [get_bd_pins processing_system7_0_axi_periph/M06_ACLK] [get_bd_pins processing_system7_0_axi_periph/M07_ACLK] [get_bd_pins processing_system7_0_axi_periph/M08_ACLK] [get_bd_pins processing_system7_0_axi_periph/M09_ACLK] [get_bd_pins rst_processing_system7_0_100M/slowest_sync_clk] [get_bd_pins v_tc_0/s_axi_aclk]
   connect_bd_net -net processing_system7_0_FCLK_CLK1 [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK] [get_bd_pins alinx_ov5640_0/m_axis_video_aclk] [get_bd_pins axi_mem_intercon/ACLK] [get_bd_pins axi_mem_intercon/S00_ACLK] [get_bd_pins axi_mem_intercon/S01_ACLK] [get_bd_pins axi_mem_intercon/M00_ACLK] [get_bd_pins axi_vdma_0/m_axi_mm2s_aclk] [get_bd_pins axi_vdma_0/m_axis_mm2s_aclk] [get_bd_pins axi_vdma_1/m_axi_s2mm_aclk] [get_bd_pins axi_vdma_1/s_axis_s2mm_aclk] [get_bd_pins axis_subset_converter_0/aclk] [get_bd_pins bbox_overlay_0/aclk] [get_bd_pins rst_processing_system7_0_150M/slowest_sync_clk] [get_bd_pins v_axi4s_vid_out_0/aclk]
   connect_bd_net -net processing_system7_0_FCLK_RESET0_N [get_bd_pins processing_system7_0/FCLK_RESET0_N] [get_bd_pins rst_processing_system7_0_100M/ext_reset_in] [get_bd_pins rst_processing_system7_0_150M/ext_reset_in]
