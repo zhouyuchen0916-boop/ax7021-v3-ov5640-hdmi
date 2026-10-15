@@ -2,6 +2,8 @@
 
 本工程使用 Vivado/Vitis 2023.1，目标器件为 AX7021 V3.0 上的 `xc7z020clg484-2`。当前阶段已完成单路 OV5640 采集、DDR 帧缓存、HDMI 输出、TinyFace INT8 HLS 加速核和 Zynq 裸机控制程序。
 
+> `codex/camera2-bringup` 分支说明：本分支把原单路处理链切换到 AN5642 的第二个 OV5640，使用第二路 DVP 引脚和 PS I2C1，保留 TinyFace 人脸检测、最多 3 个绿框及 `PEOPLE x.xM` 标签。当前仍是“第二镜头单路显示与检测”，尚未同时采集左右两路，也尚未进入双目标定和视差测距。原实板稳定版本保留在 `main` 分支的 `e19c8d6`。
+
 ## 当前人脸检测路线
 
 当前可综合、可下载的实现采用 `training/outputs/tiny_face_field_v2_neg4x.pt` 导出的 **TinyFace INT8 HLS 加速核**。该模型从随机权值开始训练，使用本项目中的 FDDB YOLO 数据和现场采集的 120 张人脸图、74 张无人背景图；背景负样本在训练时按 4 倍采样，未使用旧检查点继续训练。加速核输入为 160×120 灰度 UINT8，输出为 15×20×5 的 INT32 检测张量；权值和量化参数编译进 PL 端 ROM。摄像头写 VDMA 与 HDMI 读 VDMA 采用三个共享 DDR 帧缓存和 GenLock，显示从端比摄像头写主端延迟一帧，PS 同时读取当前写帧的上一帧；预处理按实测的 BGR888 字节顺序执行 BT.601 加权灰度，并对每个 8×6 像素块取均值缩小到 160×120，再启动 HLS 核、解码输出并通过 AXI GPIO 更新视频叠加框。
@@ -169,3 +171,17 @@ README.md               构建、接线、验证边界和运行说明
 - 2026-10-11 现场数据增强版本已完成训练、INT8 标定、HLS C 仿真、综合实现和 JTAG 下载。现场集包含 120 张人脸图（148 个框）和 74 张无人背景图；最终模型对背景图的离线误检由旧模型的 5/74 降至 1/74（阈值 0.94），FDDB 验证集 IoU 0.5 下最佳 F1 为 0.626。HLS C 仿真 1500 个输出全部匹配。下载后串口持续输出三缓冲轮转的 `FACE[f0/f1/f2]: none`，已确认无脸场景下主循环和推理持续运行；现场有脸画面的框位置与稳定性仍以 HDMI 采集卡上的 OBS 实时观察为准。
 - 2026-10-12 多人框和距离标注版本已完成行为仿真、Vitis 编译、Vivado 综合实现与比特流生成。检测器最多输出 3 个经 NMS 筛选的候选框，3 个独立跟踪器分别驱动 3 组 AXI GPIO；叠加器采用三级 AXI4-Stream 流水线绘制绿框和 `PEOPLE x.xM` 字符。行为仿真输出 `BBOX_SIM_PASS`，最终 WNS 为 `+0.407 ns`。距离是按框高估算的演示值，仍需在实板已知距离处校准；多人框数量、位置和标签显示仍以本版本下载后 OBS 实时画面为准。
 - 2026-10-13 多人框和距离标注版本已通过 JTAG 下载到实板。串口确认 `OV5640 chip ID: 0x5640`、三帧自检 `seen=0x7`、清除启动锁存后 VDMA 错误为 `0x0`，并输出 `BBOX overlay: 3 faces, PEOPLE distance labels enabled`。持续运行时同一帧同时输出 `FACE0` 和 `FACE1`，两个候选均包含坐标、置信度和距离值，证明多目标解码、跟踪及距离计算已在实板运行。绿框和字符的最终位置、清晰度及遮挡关系以 HDMI 采集卡上的 OBS 画面确认。
+- 2026-10-15 第二镜头单路版本已完成 Vivado/Vitis 构建并通过 JTAG/UART 实板启动。正式时序报告为 WNS `+0.042 ns`、TNS `0 ns`、WHS `+0.022 ns`、THS `0 ns`，布线无失败网络。串口确认 `PS I2C1 camera2 ready at 40 kHz`、`OV5640 camera2 chip ID: 0x5640`、`FRAME_SYNC_READY: seen=0x7 current=f0 errors=0x0` 和 `VIDEO RUNNING: camera2 -> 3-frame GenLock DDR -> HDMI, 1280x720`；推理循环持续轮转 `f0/f1/f2`。第二路 PCLK 固定在非 CCIO 引脚 Y11，因此保留 `CLOCK_DEDICATED_ROUTE FALSE` 和 `PLCK-12` 警告；时序已经收敛，画面长期稳定性仍以 HDMI 采集卡实测为准。
+
+## 第二镜头分支恢复方法
+
+第二镜头实验只存在于本地 `codex/camera2-bringup` 分支。若第二镜头画面异常，需要恢复原单镜头稳定版本，可在停止 Vivado/Vitis 构建后执行：
+
+```powershell
+cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base
+git switch main
+cd .\Vitis
+.\run_jtag.bat
+```
+
+切换 Git 分支只恢复本地文件，不会自动改变 FPGA 中已经下载的程序；必须再次执行 `run_jtag.bat`，才会把 `main` 中保存的 BIT 和 ELF 重新下载到板卡。
