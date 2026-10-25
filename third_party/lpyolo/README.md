@@ -1,7 +1,10 @@
 # LPYOLO integration for AX7021
 
-This directory contains the pre-trained LPYOLO 4W4A model selected to replace
-the experimental in-house face detector.
+This directory contains a historical PC-side LPYOLO 4W4A reference experiment.
+The AX7021 bitstream and ELF use the project's TinyFace HLS model, not LPYOLO.
+The ONNX weights are not distributed in the current repository tree. To
+repeat this optional experiment, obtain the model from the upstream project
+and place it at the expected path after checking its usage terms.
 
 ## Model
 
@@ -40,8 +43,9 @@ conversion used by the LPYOLO author's deployment code.
 - A live AX7021 OV5640 frame produces one face detection at confidence 0.02.
 - Measured Windows CPU reference inference time is about 50 to 65 ms per frame.
 
-These results validate model semantics and preprocessing only. They do not yet
-prove FINN IP timing, resource fit, or board throughput.
+These historical results validate model semantics and preprocessing only. They
+do not prove FINN IP timing, resource fit, or board throughput, and they do not
+describe the current TinyFace board implementation.
 
 ## FINN build targets
 

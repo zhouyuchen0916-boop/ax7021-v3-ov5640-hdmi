@@ -1,5 +1,7 @@
 # FINN 0.7 build for AX7021
 
+Historical exploration only. FINN/LPYOLO was not integrated into the current AX7021 bitstream or ELF.
+
 Target FPGA: `xc7z020clg484-2`  
 Target accelerator clock: 100 MHz  
 Target throughput used for automatic folding: 18 FPS

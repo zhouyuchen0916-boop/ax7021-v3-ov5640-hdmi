@@ -1,5 +1,7 @@
 # LPYOLO 4W4A software validation
 
+Historical PC-side reference result only. The current AX7021 bitstream uses TinyFace HLS, and the ONNX weights are not included in the current tree.
+
 Validation date: 2026-10-07
 
 Model SHA-256:

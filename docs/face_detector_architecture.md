@@ -1,5 +1,7 @@
 # AX7021 LPYOLO 4W4A 人脸检测加速器实施结构
 
+> 历史探索记录：LPYOLO/FINN 没有集成到当前 AX7021 比特流。最终上板版本采用 hls/src/tiny_face_accel.cpp 和 hls/src/tiny_face_params.h 中的 TinyFace INT8 加速核；现行双路架构见 stereo_architecture.md。下文的资源与时序属于当时的基础视频工程，不能当作当前双目版本指标。
+
 ## 已验证基础
 
 - OV5640 以 1280×720、3 字节/像素写入 DDR。

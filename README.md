@@ -1,22 +1,22 @@
-# AX7021 V3.0 + AN5642 单路 OV5640 到 HDMI 基础工程
+# AX7021 V3.0 + AN5642 双目人脸检测与测距工程
 
-本工程使用 Vivado/Vitis 2023.1，目标器件为 AX7021 V3.0 上的 `xc7z020clg484-2`。当前阶段已完成单路 OV5640 采集、DDR 帧缓存、HDMI 输出、TinyFace INT8 HLS 加速核和 Zynq 裸机控制程序。
+本工程使用 Vivado/Vitis 2023.1，目标器件为 AX7021 V3.0 上的 `xc7z020clg484-2`。当前工程包含 AN5642 两路 OV5640 采集、各自独立的 DDR 三帧缓存、并排 HDMI 预览、TinyFace INT8 HLS 加速核、最多 3 个人脸框及双目测距的 Zynq 裸机程序。
 
-> `codex/camera2-bringup` 分支说明：本分支把原单路处理链切换到 AN5642 的第二个 OV5640，使用第二路 DVP 引脚和 PS I2C1，保留 TinyFace 人脸检测、最多 3 个绿框及 `PEOPLE x.xM` 标签。当前仍是“第二镜头单路显示与检测”，尚未同时采集左右两路，也尚未进入双目标定和视差测距。原实板稳定版本保留在 `main` 分支的 `e19c8d6`。
+`main` 为当前双目版本；较早的单路版本可由历史提交 `e19c8d6` 找回，第二镜头单独显示版本保留在 `codex/camera2-bringup`。
 
 ## 当前人脸检测路线
 
-当前可综合、可下载的实现采用 `training/outputs/tiny_face_field_v2_neg4x.pt` 导出的 **TinyFace INT8 HLS 加速核**。该模型从随机权值开始训练，使用本项目中的 FDDB YOLO 数据和现场采集的 120 张人脸图、74 张无人背景图；背景负样本在训练时按 4 倍采样，未使用旧检查点继续训练。加速核输入为 160×120 灰度 UINT8，输出为 15×20×5 的 INT32 检测张量；权值和量化参数编译进 PL 端 ROM。摄像头写 VDMA 与 HDMI 读 VDMA 采用三个共享 DDR 帧缓存和 GenLock，显示从端比摄像头写主端延迟一帧，PS 同时读取当前写帧的上一帧；预处理按实测的 BGR888 字节顺序执行 BT.601 加权灰度，并对每个 8×6 像素块取均值缩小到 160×120，再启动 HLS 核、解码输出并通过 AXI GPIO 更新视频叠加框。
+当前可综合、可下载的实现采用 `training/outputs/tiny_face_field_v2_neg4x.pt` 导出的 **TinyFace INT8 HLS 加速核**。该模型从随机权值开始训练，使用 FDDB YOLO 数据和现场采集的 120 张人脸图、74 张无人背景图；背景负样本在训练时按 4 倍采样，未使用旧检查点继续训练。加速核输入为 160×120 灰度 UINT8，输出为 15×20×5 的 INT32 检测张量；权值和量化参数已经保存在 `hls/src/tiny_face_params.h`，构建后编译进 PL 端 ROM。训练数据和 `.pt` 检查点未提交到 Git，现有仓库可从参数头文件重建硬件，但不能仅凭仓库逐样本重跑当时的训练。两路摄像头分别写入 DDR；PS 从各路已完成帧执行 BGR888/BT.601 灰度和 8×6 块均值预处理，再运行 HLS 推理、匹配人脸并通过 AXI GPIO 更新视频叠加框。
 
-`third_party/lpyolo/` 保留了 LPYOLO 4W4A 的 ONNX 与 PC 端参考推理实验，但 FINN 版本尚未集成到当前 AX7021 比特流。仓库中的 BIT、XSA 和 ELF 对应 TinyFace HLS 路线，二者不能混用。
+`third_party/lpyolo/` 保留了 LPYOLO 4W4A 的 PC 端参考推理实验及模型来源说明；原始 ONNX 权值应从上游取得，未用于当前 AX7021 比特流。仓库中的 BIT、XSA 和 ELF 对应 TinyFace HLS 路线，二者不能混用。
 
 ## 当前数据通路
 
-`AN5642/J16 单路 OV5640 -> DVP 接收 -> XPM 异步 FIFO -> AXI4-Stream -> VDMA S2MM GenLock 主端 -> DDR 三帧循环缓存 -> VDMA MM2S 延迟一帧从端/HDMI 与 PS 最近完整帧推理 -> TinyFace HLS/DDR -> PS 解码坐标 -> AXI GPIO -> 目标框叠加 -> VTC/视频输出 -> HDMI OUT`
+`AN5642 两路 OV5640 -> 两套 DVP 接收与异步 FIFO -> 两路 VDMA S2MM -> DDR 左/右独立三帧缓存 -> PS 合成并排预览 -> 第三路 VDMA MM2S -> 目标框叠加 -> HDMI OUT`
 
-视频软件配置源文件采用 1280×720、RGB888。当前只接入 AN5642 的一个摄像头通道；尚未规定它在双目模组上对应左镜头还是右镜头，接板后以实际画面确认。
+两路原始帧均为 1280×720、RGB888。HDMI 输出为 1280×720：两路预览各等比例缩小到 640×360，左右并排且上下留黑边；缩小仅影响预览，推理和标定使用原始帧。具体连接见 `docs/stereo_architecture.md`。
 
-当前 PL 端加入了 AXI4-Stream 多目标框和字符叠加模块，最多同时显示 3 张人脸。PS 将检测候选按置信度排序并执行 IoU 0.35 的 NMS，再用 3 个独立跟踪器分别稳定各张人脸的位置；没有检测到人脸或推理出错时关闭相应框。每个绿框旁显示 `PEOPLE x.xM`，距离由人脸框高度按 `距离(分米)≈2100/框高(像素)` 估算，并限制在 0.3–9.9 m。该距离只用于现场演示，摄像头焦距、人员头部大小和姿态都会造成误差；可在已知距离站位后调整 `display_demo.c` 中的 `FACE_DISTANCE_SCALE_DM_PIXELS` 做单点标定。
+PL 端的 AXI4-Stream 多目标框和字符叠加模块最多显示 3 张人脸。PS 对两路原始帧分别推理，匹配同一张脸后依据双目标定参数估计距离；串口 `source=stereo` 表示双目结果，`source=fallback` 表示匹配不可靠时改用框高估算。绿框旁显示 `PEOPLE x.xM`。已完成 20 对棋盘格的离线标定及板端链路验证；绝对测距误差仍需在已知距离处实测，不应把串口距离值视为已验证精度。
 
 ## 关键文件
 
@@ -36,22 +36,43 @@
 - DDR 完整帧采集：`Vitis/capture_frame.bat`
 - TinyFace HLS 源码、测试平台和已打包 IP：`hls/`
 - 训练、评估和 INT8 校准工具：`training/`
+- 双目标定与图像对采集：`stereo/README.md`
+- 板端双目标定常量：`Vitis/auto_create_vitis/src/an5642_single/stereo_calibration_params.h`
+- 双路架构：`docs/stereo_architecture.md`
 - LPYOLO 模型与 PC 端参考实验：`third_party/lpyolo/`
 - 人脸检测加速器结构：`docs/face_detector_architecture.md`
 - 验证报告：`Vivado/reports/`
 
+## 参赛资料与目录对照
+
+本仓库保留了 Vivado/Vitis 工程原有目录，以免改名后破坏 Block Design、脚本或 Windows 工具路径。与选题指南的推荐结构对应如下：
+
+| 指南目录 | 本仓库位置 |
+| --- | --- |
+| src/ | Vivado/auto_create_project/src/、hls/src/、Vitis/auto_create_vitis/src/ |
+| sim/ | hls/tb/、Vivado/auto_create_project/run_bbox_overlay_sim.bat |
+| build/ | hls/build_hls.bat、Vivado/auto_create_project/、Vitis/build_all.bat、Vivado/reports/ |
+| board/ | Vivado/design_1_wrapper.bit、Vitis/design_1_wrapper.xsa、Vitis/manual_build/an5642_single.elf、Vitis/run_jtag.bat |
+| data/ | hls/tb/test_vector.h；现场人脸图像与棋盘格原始图像对未公开 |
+| skill/ | skill/README.md |
+| report/ | report/README.md |
+
+当前项目路径继承了部分 Vivado/Vitis 和厂商资料的大小写命名，尚未完全满足指南对仓库文件名小写的要求；直接批量重命名会使现有工程引用失效。参赛审阅应以本表和构建步骤定位文件。根目录 MIT 许可仅覆盖本项目原创部分；第三方文件和历史模型的来源见 THIRD_PARTY_NOTICES.md。
+
 ## 从头生成 Vivado 工程
 
-安装路径按本机设置为 `D:\Xilinx\Vivado\2023.1`。如果 Vivado 安装在其他位置，先修改 `create_project.bat` 中的路径。
+构建脚本目前按 Windows 上 `D:\Xilinx\Vivado\2023.1` 和 `D:\Xilinx\Vitis\2023.1` 编写。如果安装在其他位置，先修改相关 `.bat` 中的工具路径。以下命令从仓库根目录开始执行；源码本身无需放在原作者的用户目录。
 
 在 Windows 命令提示符或 PowerShell 中执行：
 
 ```powershell
-cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base
+git clone https://github.com/zhouyuchen0916-boop/ax7021-v3-ov5640-hdmi.git
+cd .\ax7021-v3-ov5640-hdmi
 .\hls\build_hls.bat all
 
-cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vivado\auto_create_project
+Push-Location .\Vivado\auto_create_project
 .\create_project.bat
+Pop-Location
 ```
 
 第一条命令使用仓库中已提交的 INT8 参数头文件运行 C 仿真、HLS 综合并打包 `tiny_face_accel` IP，不需要下载训练检查点。随后 Vivado 脚本会创建 Block Design、综合、实现、生成比特流、生成验证报告，并导出包含比特流的 XSA。HLS 成功标志为 `HLS_CSIM_MISMATCHES=0`，Vivado 成功标志为日志中的 `BUILD_OK`。
@@ -59,31 +80,30 @@ cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vivado\a
 只修改约束且已有工程时，可执行：
 
 ```powershell
-.\rebuild_constraints.bat
+.\Vivado\auto_create_project\rebuild_constraints.bat
 ```
 
 成功标志为 `REBUILD_OK`。
 
 ## 构建裸机程序
 
-在 PowerShell 中执行：
+回到仓库根目录后，在 PowerShell 中执行：
 
 ```powershell
-cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vitis
-.\build_all.bat
+.\Vitis\build_all.bat
 ```
 
 首次执行会从 XSA 创建 Vitis standalone 平台并编译 BSP，通常需要几分钟；随后使用 Vitis 2023.1 自带的 `arm-none-eabi-gcc` 构建应用。若重新生成了 XSA，先执行 `Vitis/auto_create_vitis/update_platform.bat` 更新现有平台，再执行 `Vitis/build_all.bat`。也可以删除生成目录 `Vitis/design_1_wrapper` 后直接运行 `build_all.bat` 完整重建。应用源码位于 `Vitis/auto_create_vitis/src/an5642_single`，可只执行 `Vitis/manual_build/build.bat` 快速重编应用。
 
 裸 JTAG 启动不会执行 FSBL，因此应用在 `main()` 开始处调用 `XTime_SetTime(0)` 启动 SCU 全局定时器；否则 standalone 的 `usleep()` 会一直等待。三帧 1280×720 RGB888 缓存放在链接脚本的 `.noinit` 区，并在其上方预留启动栈保护区，避免 C 运行库清零 BSS 时覆盖 Cortex-A9 异常栈。
 
-由于本机完整路径较长，而且 Xilinx Tcl 在该 Windows 用户目录下会错误处理 `Documents` 路径，脚本临时使用 `P:`/`Q:` 映射工程根目录；源文件和输出仍保存在本工程目录中。
+脚本临时使用 `P:`/`Q:` 映射工程根目录，以缩短 Xilinx 工具路径；源文件和输出仍保存在本工程目录中。运行前应确保这两个盘符未被其他设备占用。
 
 ## 实板连接与运行
 
 断电连接以下设备：
 
-1. AN5642 双目 OV5640 模组接 AX7021 V3.0 的 `J16`，当前工程只使用其中一路。
+1. AN5642 双目 OV5640 模组接 AX7021 V3.0 的 `J16`，当前工程同时使用两路镜头。
 2. 板卡 `HDMI OUT` 接显示器，或接 USB HDMI 采集卡后再接电脑。普通笔记本 HDMI 口通常只能输出，不能直接作为 HDMI 输入。
 3. 板卡 UART 接电脑，串口终端设置为 `115200、8N1、无流控`。
 4. 板卡 JTAG 接电脑，接入电源并开机。
@@ -91,40 +111,37 @@ cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vitis
 先检查 JTAG：
 
 ```powershell
-cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base\Vitis
-.\check_jtag.bat
+.\Vitis\check_jtag.bat
 ```
 
 输出的 `JTAG_TARGETS_BEGIN` 与 `JTAG_TARGETS_END` 之间应出现 Zynq 和 ARM Cortex-A9 目标。然后保持串口终端打开，执行：
 
 ```powershell
-.\run_jtag.bat
+.\Vitis\run_jtag.bat
 ```
 
 程序依次下载 `Vivado/design_1_wrapper.bit` 和 `Vitis/manual_build/an5642_single.elf`。正常串口输出应包含：
 
 ```text
-AX7021 OV5640 HDMI demo start
-PS I2C ready at 40 kHz
-OV5640 chip ID: 0x5640
-OV5640 configured for 1280x720 RGB output
-BBOX overlay: 3 faces, PEOPLE distance labels enabled
-VDMA startup errors: 0x810 (clearing latched frame status)
-VDMA errors after clear: 0x0
-FRAME_SYNC_READY: seen=0x7 current=f0 errors=0x0
-VIDEO RUNNING: camera -> 3-frame GenLock DDR -> HDMI, 1280x720
-FRAME_SYNC: writing=f1, inference=f0
-FRAME_SYNC: writing=f0, inference=f2
-FRAME_SYNC: writing=f2, inference=f1
-FACE0[f2]: (275,52)-(686,381), score=931/1000 distance=0.6m
-FACE1[f2]: (810,96)-(1088,408), score=947/1000 distance=0.7m
+AX7021 AN5642 dual-camera capture demo start
+PS I2C0 camera1/HDMI ready at 40 kHz
+PS I2C1 camera2 ready at 40 kHz
+BBOX overlay: 3 faces, calibrated stereo distance labels enabled
+OV5640 camera1 chip ID: 0x5640
+OV5640 camera2 chip ID: 0x5640
+VDMA errors after clear: camera1=0x0 camera2=0x0
+CAMERA1_FRAME_SYNC_READY: seen=0x7 current=f0 errors=0x0
+CAMERA2_FRAME_SYNC_READY: seen=0x7 current=f0 errors=0x0
+DUAL CAPTURE RUNNING: camera1 + camera2 -> independent DDR rings
+STEREO PREVIEW: camera1 left | camera2 right, 640x360 each, aspect ratio preserved
+FACE0[f1]: (...) score=... distance=... source=stereo
 ```
 
-只有看到 `OV5640 chip ID: 0x5640`，才能确认摄像头的供电、复位和 SCCB/I²C 通信已建立；只有显示器出现稳定画面，才能确认完整的摄像头到 HDMI 通路跑通。
+两路都读到 `OV5640 ... chip ID: 0x5640`，才能确认两只摄像头的供电、复位和 SCCB/I²C 通信已建立；HDMI 预览左右均有实时画面，才能确认双路采集和显示链路。`source=stereo` 证明程序采用双目配对计算了距离，但测距精度仍需对照卷尺实测。
 
-## 最终构建验证
+## 历史单路构建验证
 
-构建日期：2026-10-12。
+以下记录属于 2026-10-12 的单路多人检测基线，不代表当前双路版本的资源、时序或文件哈希。当前双路设计应以 `Vivado/reports/` 中最新报告以及本分支的 BIT、XSA、ELF 为准。
 
 - 实现和比特流生成：成功，0 Error
 - 框叠加 RTL 自检仿真：通过，输出 `BBOX_SIM_PASS`
@@ -152,14 +169,20 @@ FACE1[f2]: (810,96)-(1088,408), score=947/1000 distance=0.7m
 ```text
 Vivado/                 Vivado 工程、Block Design、IP、约束、报告和比特流
 Vitis/                  平台导出、裸机应用源码、构建脚本、XSA 和 ELF
-NA/                     PS 配置摘要
-Bootimage/              现有 BOOT.BIN 快照
+hls/                    TinyFace HLS 源码、参数、测试平台及构建脚本
+training/               模型训练、评估、INT8 导出脚本；不含现场图像和检查点
+stereo/                 双目标定、采集与板端参数生成脚本
+docs/                   检测器和双路视频架构说明
+third_party/lpyolo/     未集成到当前板端程序的 LPYOLO 参考实验
+Bootimage/              历史 BOOT.BIN 快照；当前双目版建议用 JTAG 下载 BIT 和 ELF
+skill/                  可复用的联调与验证清单
+report/                 设计说明、证据索引和未完成测量边界
 README.md               构建、接线、验证边界和运行说明
 ```
 
 ## 已知警告与验证边界
 
-- OV5640 PCLK 位于板卡固定引脚 AB9，该引脚不是专用时钟引脚，因此保留 `CLOCK_DEDICATED_ROUTE FALSE` 和 `PLCK-12` 警告。这来自板卡走线，最终内部时序已通过，但仍需上板验证图像稳定性。
+- 两路 OV5640 PCLK 分别位于板卡固定引脚 AB9 和 Y11，均非专用时钟引脚，因此保留 `CLOCK_DEDICATED_ROUTE FALSE` 和 `PLCK-12` 警告。内部时序报告不能替代长期画面稳定性实测。
 - OV5640 的 10 位数据、HREF、VSYNC 尚未加入板级 `set_input_delay`。准确数值依赖摄像头寄存器配置、模组和 PCB 走线，不能仅凭参考工程臆造。
 - `CDC-6` 位于 AMD Video Timing Controller 自带的 AXI-Lite 多位 CDC 逻辑；两条 `CDC-15` 位于自动生成的 AXI Clock Converter，摄像头自定义 CDC 已修正。
 - 其余 `PDCN-1569`、`RTSTAT-10`、`LUTAR-1`、`PDRC-190` 指向 AMD 调试核或 AXI/IP 内部逻辑，没有阻止比特流生成。
@@ -173,15 +196,20 @@ README.md               构建、接线、验证边界和运行说明
 - 2026-10-13 多人框和距离标注版本已通过 JTAG 下载到实板。串口确认 `OV5640 chip ID: 0x5640`、三帧自检 `seen=0x7`、清除启动锁存后 VDMA 错误为 `0x0`，并输出 `BBOX overlay: 3 faces, PEOPLE distance labels enabled`。持续运行时同一帧同时输出 `FACE0` 和 `FACE1`，两个候选均包含坐标、置信度和距离值，证明多目标解码、跟踪及距离计算已在实板运行。绿框和字符的最终位置、清晰度及遮挡关系以 HDMI 采集卡上的 OBS 画面确认。
 - 2026-10-15 第二镜头单路版本已完成 Vivado/Vitis 构建并通过 JTAG/UART 实板启动。正式时序报告为 WNS `+0.042 ns`、TNS `0 ns`、WHS `+0.022 ns`、THS `0 ns`，布线无失败网络。串口确认 `PS I2C1 camera2 ready at 40 kHz`、`OV5640 camera2 chip ID: 0x5640`、`FRAME_SYNC_READY: seen=0x7 current=f0 errors=0x0` 和 `VIDEO RUNNING: camera2 -> 3-frame GenLock DDR -> HDMI, 1280x720`；推理循环持续轮转 `f0/f1/f2`。第二路 PCLK 固定在非 CCIO 引脚 Y11，因此保留 `CLOCK_DEDICATED_ROUTE FALSE` 和 `PLCK-12` 警告；时序已经收敛，画面长期稳定性仍以 HDMI 采集卡实测为准。
 
+## 当前双路版本验证边界
+
+- 已完成 20 对有效棋盘格标定，双目 RMS `0.6420 px`，计算基线 `40.239 mm`；标定参数已写入 `stereo_calibration_params.h`。详见 `stereo/README.md`。
+- 实板串口已出现双路摄像头识别、独立 DDR 环形缓存轮转及 `source=stereo` 的测距输出；这确认链路运行，不等于绝对测距精度已达标。
+- 当前 `Vivado/reports/timing_summary.rpt` 中 WNS 为 `+0.294 ns`、TNS 为 `0 ns`。单路基线的资源占用和哈希不得直接当作本双路版本的指标。
+- 现场人脸图像、训练检查点、棋盘格原始图像对和生成的标定 JSON 未提交仓库；已提交 INT8 参数头文件与板端标定头文件，工程可用这些参数构建，但完整训练和重新标定需要重新采集数据。
+
 ## 第二镜头分支恢复方法
 
-第二镜头实验只存在于本地 `codex/camera2-bringup` 分支。若第二镜头画面异常，需要恢复原单镜头稳定版本，可在停止 Vivado/Vitis 构建后执行：
+若需要恢复原单镜头稳定版本，可在停止 Vivado/Vitis 构建并保存未提交修改后，从历史提交 `e19c8d6` 建立单独的恢复分支，再重新下载对应 BIT 和 ELF。不要在当前工作目录直接切换旧提交，以免覆盖未提交的改动。
 
 ```powershell
-cd C:\Users\34249\Documents\ChatGPT\FPGA\projects\ax7021_v3_ov5640_base
-git switch main
-cd .\Vitis
-.\run_jtag.bat
+git switch -c restore-single-camera e19c8d6
+.\Vitis\run_jtag.bat
 ```
 
-切换 Git 分支只恢复本地文件，不会自动改变 FPGA 中已经下载的程序；必须再次执行 `run_jtag.bat`，才会把 `main` 中保存的 BIT 和 ELF 重新下载到板卡。
+切换 Git 分支只恢复本地文件，不会自动改变 FPGA 中已经下载的程序；必须再次执行 `run_jtag.bat`，才会把该提交保存的 BIT 和 ELF 下载到板卡。
